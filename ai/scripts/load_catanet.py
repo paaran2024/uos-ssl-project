@@ -44,31 +44,3 @@ def get_catanet_teacher_model(weights_path: str = None, upscale: int = 4):
     model.eval()
 
     return model
-
-# 이 스크립트가 직접 실행될 때 테스트용 코드
-if __name__ == "__main__":
-    # 예시: 가중치 없이 모델 생성
-    print("\n--- 가중치 없이 CATANet-L 모델 생성 테스트 ---")
-    catanet_model_no_weights = get_catanet_teacher_model(upscale=4)
-    print(catanet_model_no_weights)
-
-    # 예시: 더미 가중치 파일을 생성하고 로드하는 시나리오 (실제 가중치 파일로 대체 필요)
-    dummy_weights_path = "ai/weights/catanet_l_dummy_weights.pth"
-    print(f"\n--- 더미 가중치 파일 생성 (실제 가중치로 대체 필요): {dummy_weights_path} ---")
-    # 실제 사용 시에는 이 부분이 실제 훈련된 가중치 파일 경로가 됩니다.
-    # 현재는 더미 파일을 생성하는 코드를 포함합니다.
-    try:
-        # 더미 가중치 파일이 없으면 생성
-        if not os.path.exists(dummy_weights_path):
-            print("더미 가중치 파일이 없어 새로 생성합니다.")
-            dummy_model = CATANet(in_chans=3, upscale=4)
-            torch.save(dummy_model.state_dict(), dummy_weights_path)
-            print("더미 가중치 파일 생성 완료.")
-        
-        print("\n--- 더미 가중치로 CATANet-L 모델 로드 테스트 ---")
-        catanet_model_with_weights = get_catanet_teacher_model(weights_path=dummy_weights_path, upscale=4)
-        print(catanet_model_with_weights)
-
-    except Exception as e:
-        print(f"더미 가중치 로드 테스트 중 오류 발생: {e}")
-        print("`einops`와 같은 필요한 라이브러리가 설치되었는지 확인하세요.")
