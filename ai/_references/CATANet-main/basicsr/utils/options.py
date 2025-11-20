@@ -5,7 +5,10 @@ import torch
 import yaml
 from collections import OrderedDict
 from os import path as osp
-import deepspeed
+try:
+    import deepspeed
+except ImportError:
+    deepspeed = None
 from basicsr.utils import set_random_seed
 from basicsr.utils.dist_util import get_dist_info, init_dist, master_only,init_dist_deepspeed
 

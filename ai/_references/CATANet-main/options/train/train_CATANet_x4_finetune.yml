@@ -12,7 +12,7 @@ datasets:
     type: PairedImageDataset
     dataroot_gt: datasets/DIV2K/DIV2K_HR
     dataroot_lq: datasets/DIV2K/DIV2K_LR_bicubic/x4
-    filename_tmpl: '{}x4'
+    filename_tmpl: "{}x4"
     io_backend:
       type: disk
 
@@ -25,23 +25,23 @@ datasets:
     num_worker_per_gpu: 8
     batch_size_per_gpu: 16
     dataset_enlarge_ratio: 100
-    prefetch_mode: 'cuda'
+    prefetch_mode: "cuda"
     pin_memory: true
 
   val_0:
     name: Set5
     type: PairedImageDataset
-    dataroot_gt: datasets/Set5/HR
-    dataroot_lq: datasets/Set5/LR_bicubic/X4
-    filename_tmpl: '{}x4'
+    dataroot_gt: datasets/HR/Set5/x4
+    dataroot_lq: datasets/LR/LRBI/Set5/x4
+    filename_tmpl: "{}_x4"
     io_backend:
       type: disk
   val_1:
     name: Set14
     type: PairedImageDataset
-    dataroot_gt: datasets/Set14/HR
-    dataroot_lq: datasets/Set14/LR_bicubic/X4
-    filename_tmpl: '{}x4'
+    dataroot_gt: datasets/HR/Set14/x4
+    dataroot_lq: datasets/LR/LRBI/Set14/x4
+    filename_tmpl: "{}_x4"
     io_backend:
       type: disk
 
@@ -71,7 +71,6 @@ train:
 
   total_iter: 250000
 
-
   # losses
   pixel_opt:
     type: L1Loss
@@ -92,8 +91,6 @@ val:
       type: calculate_ssim_pt
       crop_border: 4
       test_y_channel: true
-
-
 
 # logging settings
 logger:
