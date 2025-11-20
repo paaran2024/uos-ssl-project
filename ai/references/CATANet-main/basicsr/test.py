@@ -1,3 +1,12 @@
+import sys
+import os
+
+# CATANet 프로젝트 루트를 Python 경로에 추가
+current_file = os.path.abspath(__file__)  # test.py의 절대 경로
+basicsr_dir = os.path.dirname(current_file)  # basicsr 폴더
+project_root = os.path.dirname(basicsr_dir)  # CATANet-main 폴더
+sys.path.insert(0, project_root)
+
 import logging
 import torch
 from os import path as osp
