@@ -1,10 +1,10 @@
 import 'dart:io';
 import 'dart:async';
 import 'dart:typed_data';
+import 'package:app/media_store_saver.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
-import 'package:emutest/media_store_saver.dart';
 
 
 class VideoTab extends StatefulWidget {
@@ -102,89 +102,64 @@ class _VideoTabState extends State<VideoTab> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          //  입력 비디오
-          GestureDetector(
-            onTap: _pickVideo,
-            child: Container(
-              height: 300,
-              width: double.infinity,
-              margin: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: _inputVideo == null
-                  ? const Center(child: Text("입력 영상 선택"))
-                  : _inputController!.value.isInitialized
-                  ? Stack(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: AspectRatio(
-                      aspectRatio:
-                      _inputController!.value.aspectRatio,
-                      child: VideoPlayer(_inputController!),
-                    ),
-                  ),
-                  // 재생/일시정지 버튼
-                  Center(
-                    child: IconButton(
-                      icon: Icon(
-                        _inputController!.value.isPlaying
-                            ? Icons.pause_circle
-                            : Icons.play_circle,
-                        size: 40,
-                        color: Colors.white,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          if (_inputController!.value.isPlaying) {
-                            _inputController!.pause();
-                          } else {
-                            _inputController!.play();
-                          }
-                        });
-                      },
-                    ),
-                  )
-                ],
-              )
-                  : const Center(child: CircularProgressIndicator()),
-            ),
+  // 비디오 플레이어 위젯 생성
+  Widget _buildVideoPlayer({
+    required String placeholderText,
+    required VideoPlayerController? controller,
+    required bool isInput,
+    required VoidCallback? onTap,
+  }) {
+    if (controller == null) {
+      return GestureDetector(
+        onTap: onTap,
+        child: Container(
+          height: 250,
+          width: double.infinity,
+          margin: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade300,
+            borderRadius: BorderRadius.circular(10),
           ),
+          child: Center(child: Text(placeholderText)),
+        ),
+      );
+    }
 
-          //  출력 비디오
-          Container(
-            height: 300,
-            width: double.infinity,
-            margin: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: _outputVideo == null
-                ? const Center(child: Text("출력 영상"))
-                : _outputController!.value.isInitialized
-                ? Stack(
+    if (!controller.value.isInitialized) {
+      return Container(
+        height: 250,
+        width: double.infinity,
+        margin: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade300,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade300,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: AspectRatio(
+            aspectRatio: controller.value.aspectRatio,
+            child: Stack(
+              fit: StackFit.expand,
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: AspectRatio(
-                    aspectRatio:
-                    _outputController!.value.aspectRatio,
-                    child: VideoPlayer(_outputController!),
-                  ),
-                ),
-                // 재생/일시 버튼
+                VideoPlayer(controller),
+                // 재생/일시정지 버튼
                 Center(
                   child: IconButton(
                     icon: Icon(
-                      _outputController!.value.isPlaying
+                      controller.value.isPlaying
                           ? Icons.pause_circle
                           : Icons.play_circle,
                       size: 40,
@@ -192,30 +167,55 @@ class _VideoTabState extends State<VideoTab> {
                     ),
                     onPressed: () {
                       setState(() {
-                        if (_outputController!.value.isPlaying) {
-                          _outputController!.pause();
+                        if (controller.value.isPlaying) {
+                          controller.pause();
                         } else {
-                          _outputController!.play();
+                          controller.play();
                         }
                       });
                     },
                   ),
                 ),
-                // 전체 화면 버튼
-                Positioned(
-                  bottom: 10,
-                  right: 10,
-                  child: IconButton(
-                    icon: const Icon(Icons.fullscreen,
-                        size: 36, color: Colors.white),
-                    onPressed: () {
-                      _openFullScreen(_outputController!);
-                    },
+                // 출력 영상에만 전체화면 버튼 추가
+                if (!isInput)
+                  Positioned(
+                    bottom: 10,
+                    right: 10,
+                    child: IconButton(
+                      icon: const Icon(Icons.fullscreen,
+                          size: 36, color: Colors.white),
+                      onPressed: () {
+                        _openFullScreen(controller);
+                      },
+                    ),
                   ),
-                )
               ],
-            )
-                : const Center(child: CircularProgressIndicator()),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          // 입력 비디오
+          _buildVideoPlayer(
+            placeholderText: "입력 영상 선택",
+            controller: _inputController,
+            isInput: true,
+            onTap: _pickVideo,
+          ),
+
+          // 출력 비디오
+          _buildVideoPlayer(
+            placeholderText: "출력 영상",
+            controller: _outputController,
+            isInput: false,
+            onTap: null,
           ),
 
           const SizedBox(height: 20),
@@ -359,7 +359,7 @@ class _FullScreenVideoPlayerState extends State<FullScreenVideoPlayer>
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // 비디오
+            // 비디오 - 화면 비율에 맞춰 표시
             Center(
               child: AspectRatio(
                 aspectRatio: widget.controller.value.aspectRatio,

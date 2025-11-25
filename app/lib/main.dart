@@ -31,7 +31,7 @@ class _HomeScreenState extends State<HomeScreen> {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text("Ondevice"),
+          title: const Text("Image Super Resolution Test"),
           centerTitle: false,
           bottom: PreferredSize(
             preferredSize: Size.fromHeight(1),
