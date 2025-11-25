@@ -1,5 +1,7 @@
 #!/usr/bin/env python
+
 from setuptools import find_packages, setup
+
 import os
 import subprocess
 import time
@@ -14,6 +16,7 @@ def readme():
 
 
 def get_git_hash():
+
     def _minimal_ext_cmd(cmd):
         # construct minimal environment
         env = {}
@@ -40,6 +43,13 @@ def get_git_hash():
 def get_hash():
     if os.path.exists('.git'):
         sha = get_git_hash()[:7]
+    # currently ignore this
+    # elif os.path.exists(version_file):
+    #     try:
+    #         from basicsr.version import __version__
+    #         sha = __version__.split('+')[-1]
+    #     except ImportError:
+    #         raise ImportError('Unable to get git version')
     else:
         sha = 'unknown'
 
@@ -54,58 +64,91 @@ __gitsha__ = '{}'
 version_info = ({})
 """
     sha = get_hash()
-    
-    # VERSION 파일이 없을 경우 기본값 사용
-    if os.path.exists('VERSION'):
-        with open('VERSION', 'r') as f:
-            SHORT_VERSION = f.read().strip()
-    else:
-        SHORT_VERSION = '1.0.0'
-    
+    with open('VERSION', 'r') as f:
+        SHORT_VERSION = f.read().strip()
     VERSION_INFO = ', '.join([x if x.isdigit() else f'"{x}"' for x in SHORT_VERSION.split('.')])
+
     version_file_str = content.format(time.asctime(), SHORT_VERSION, sha, VERSION_INFO)
-    
     with open(version_file, 'w') as f:
         f.write(version_file_str)
 
 
 def get_version():
-    write_version_py()
     with open(version_file, 'r') as f:
         exec(compile(f.read(), version_file, 'exec'))
     return locals()['__version__']
 
 
+def make_cuda_ext(name, module, sources, sources_cuda=None):
+    if sources_cuda is None:
+        sources_cuda = []
+    define_macros = []
+    extra_compile_args = {'cxx': []}
+
+    if torch.cuda.is_available() or os.getenv('FORCE_CUDA', '0') == '1':
+        define_macros += [('WITH_CUDA', None)]
+        extension = CUDAExtension
+        extra_compile_args['nvcc'] = [
+            '-D__CUDA_NO_HALF_OPERATORS__',
+            '-D__CUDA_NO_HALF_CONVERSIONS__',
+            '-D__CUDA_NO_HALF2_OPERATORS__',
+        ]
+        sources += sources_cuda
+    else:
+        print(f'Compiling {name} without CUDA')
+        extension = CppExtension
+
+    return extension(
+        name=f'{module}.{name}',
+        sources=[os.path.join(*module.split('.'), p) for p in sources],
+        define_macros=define_macros,
+        extra_compile_args=extra_compile_args)
+
+
 def get_requirements(filename='requirements.txt'):
     here = os.path.dirname(os.path.realpath(__file__))
     with open(os.path.join(here, filename), 'r') as f:
-        requires = []
-        for line in f.readlines():
-            line = line.strip()
-            # Skip empty lines, comments, and pip options
-            if line and not line.startswith('#') and not line.startswith('--'):
-                requires.append(line)
+        requires = [line.replace('\n', '') for line in f.readlines()]
     return requires
 
 
 if __name__ == '__main__':
-    # CUDA 확장 컴파일 비활성화 (서버 환경에서는 불필요)
-    cuda_ext = os.getenv('BASICSR_EXT', 'False')
-    
+    cuda_ext = os.getenv('BASICSR_EXT')  # whether compile cuda ext
     if cuda_ext == 'True':
-        print("Warning: CUDA extensions are disabled by default for server environments.")
-        print("Set BASICSR_EXT=True only if you need CUDA extensions and have proper CUDA setup.")
-        ext_modules = []
-        setup_kwargs = dict()
+        try:
+            import torch
+            from torch.utils.cpp_extension import BuildExtension, CppExtension, CUDAExtension
+        except ImportError:
+            raise ImportError('Unable to import torch - torch is needed to build cuda extensions')
+
+        ext_modules = [
+            make_cuda_ext(
+                name='deform_conv_ext',
+                module='basicsr.ops.dcn',
+                sources=['src/deform_conv_ext.cpp'],
+                sources_cuda=['src/deform_conv_cuda.cpp', 'src/deform_conv_cuda_kernel.cu']),
+            make_cuda_ext(
+                name='fused_act_ext',
+                module='basicsr.ops.fused_act',
+                sources=['src/fused_bias_act.cpp'],
+                sources_cuda=['src/fused_bias_act_kernel.cu']),
+            make_cuda_ext(
+                name='upfirdn2d_ext',
+                module='basicsr.ops.upfirdn2d',
+                sources=['src/upfirdn2d.cpp'],
+                sources_cuda=['src/upfirdn2d_kernel.cu']),
+        ]
+        setup_kwargs = dict(cmdclass={'build_ext': BuildExtension})
     else:
         ext_modules = []
         setup_kwargs = dict()
 
+    write_version_py()
     setup(
         name='basicsr',
         version=get_version(),
         description='Open Source Image and Video Super-Resolution Toolbox',
-        long_description=readme() if os.path.exists('README.md') else 'BasicSR',
+        long_description=readme(),
         long_description_content_type='text/markdown',
         author='Xintao Wang',
         author_email='xintao.wang@outlook.com',
@@ -120,15 +163,10 @@ if __name__ == '__main__':
             'Programming Language :: Python :: 3',
             'Programming Language :: Python :: 3.7',
             'Programming Language :: Python :: 3.8',
-            'Programming Language :: Python :: 3.9',
-            'Programming Language :: Python :: 3.10',
-            'Programming Language :: Python :: 3.11',
-            'Programming Language :: Python :: 3.12',
         ],
         license='Apache License 2.0',
-        setup_requires=['setuptools', 'wheel'],
+        setup_requires=['cython', 'numpy', 'torch'],
         install_requires=get_requirements(),
         ext_modules=ext_modules,
         zip_safe=False,
-        **setup_kwargs
-    )
+        **setup_kwargs)
