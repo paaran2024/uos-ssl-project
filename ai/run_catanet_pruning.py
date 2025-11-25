@@ -7,14 +7,13 @@ import os
 # --- 커스텀 모듈 및 OPTIN 라이브러리 임포트 ---
 
 # 1. 우리가 만든 커스텀 CATANet-L 모델 로더를 임포트합니다.
-from ai.scripts.load_catanet import get_catanet_teacher_model
+from scripts.load_catanet import get_catanet_teacher_model
 
 # 2. OPTIN 프레임워크의 핵심 프루닝 및 평가 함수를 임포트합니다.
-# references 폴더에 있지만, 수정 없이 라이브러리처럼 사용합니다.
-from ai.references.OPTIN.prune.main_prune import pruneModel
-from ai.references.OPTIN.evals.gen_eval import evalModel
-from ai.references.OPTIN.data.scripts.gen_dataset import generateDataset
-from ai.references.OPTIN.utils.utility import calculateComplexity
+from prune.main_prune import pruneModel
+from evals.gen_eval import evalModel
+from data.scripts.gen_dataset import generateDataset
+from utils.utility import calculateComplexity
 
 # 이 스크립트는 CATANet-L 모델에 대한 프루닝 전체 과정을 실행하는 메인 스크립트입니다.
 # OPTIN의 main.py 역할을 하지만, 우리가 만든 커스텀 모델을 사용하도록 수정되었습니다.
@@ -134,7 +133,7 @@ def main():
     print("--- 모델 프루닝 완료 ---\n")
 
     # --- 5. 프루닝된 모델 저장 ---
-    pruned_model_save_path = os.path.join('ai', 'weights', 'catanet_pruned.pth')
+    pruned_model_save_path = os.path.join('weights', 'catanet_pruned.pth')
     apply_and_save_pruned_model(teacher_model, pruningParams, pruned_model_save_path)
     print("\n")
 
