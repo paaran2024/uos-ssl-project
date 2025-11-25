@@ -3,41 +3,59 @@ import 'picture_tab.dart';
 import 'video_tab.dart';
 
 void main() {
-  runApp(MyApp());
+  runApp(const MyApp());
 }
 
-class MyApp extends StatefulWidget {
-  @override
-  _MyAppState createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> {
-  int _currentIndex = 0;
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final List<Widget> screens = [
-      PictureTab(),
-      VideoTab(),
-    ];
-
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: Scaffold(
-        body: screens[_currentIndex],
+      home: const HomeScreen(),
+    );
+  }
+}
 
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: (index) => setState(() => _currentIndex = index),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.image),
-              label: "picture",
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text("Ondevice"),
+          centerTitle: false,
+          bottom: PreferredSize(
+            preferredSize: Size.fromHeight(1),
+            child: Container(
+              color: Colors.grey.shade300,   // 구분선 색
+              height: 1,
             ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.video_collection_rounded),
-              label: "video",
-            ),
+          ),
+        ),
+
+
+        bottomNavigationBar: const TabBar(
+          labelColor: Colors.blue,
+          unselectedLabelColor: Colors.grey,
+          tabs: [
+            Tab(text: "사진", icon: Icon(Icons.photo)),
+            Tab(text: "비디오", icon: Icon(Icons.video_library)),
+          ],
+        ),
+
+        body: const TabBarView(
+          children: [
+            PictureTab(),
+            VideoTab(),
           ],
         ),
       ),
