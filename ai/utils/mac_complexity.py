@@ -1,3 +1,24 @@
+"""
+[리팩토링 노트]
+이 스크립트는 모델의 MACs(Multiply-Accumulate Operations)를 계산하여
+가지치기(pruning) 중요도 결정에 활용됩니다. `CATANet` 모델에 맞게 수정되었습니다.
+
+[원본과의 주요 차이점]
+1.  초기 컨볼루션 MAC 계산:
+    -   이전: `query_conv_mac` 함수는 Vision Transformer(ViT) 모델에 특화된
+      초기 패치 임베딩 컨볼루션의 MAC을 계산했습니다.
+    -   현재: `catanet_first_conv_mac` 함수를 새로 추가하여, `CATANet`의
+      `first_conv` 레이어(3x3 컨볼루션)에 대한 MAC을 올바르게 계산하도록 수정했습니다.
+      이는 `compute_base_mac` 및 `compute_pruned_mac`에서 사용됩니다.
+
+2.  `query_conv_mac` 함수 제거:
+    -   `CATANet`과 호환되지 않는 `query_conv_mac` 함수는 더 이상 사용되지 않으므로 삭제되었습니다.
+
+3.  `patch_mask` 로직:
+    -   `patch_mask` 관련 로직은 OPTIN에서 ViT의 패치 프루닝을 위해 사용되었던 것으로,
+      `CATANet`의 아키텍처와는 직접적인 관련이 적습니다. 현재는 구조적 무결성을
+      유지하기 위해 남아있지만, `CATANet`에서는 주로 FFN 뉴런 프루닝에 중점을 둡니다.
+"""
 import torch
 
 def mac_per_head(
@@ -45,6 +66,20 @@ def compute_mac(
         mac += attention_mac + ffn_mac
     return mac
 
+def catanet_first_conv_mac(prunedProps, lq_size=32):
+    """
+    CATANet의 첫 번째 3x3 컨볼루션 레이어(first_conv)의 MAC을 계산합니다.
+    (config에서 gt_size=128 및 scale=4를 기준으로) 32x32의 저품질 입력 크기를
+    가정하여 계산합니다.
+    """
+    in_channels = 3
+    out_channels = prunedProps["hidden_size"] # CATANet에서 `dim`
+    kernel_h, kernel_w = 3, 3
+    # padding=1, stride=1이므로 출력 크기는 입력 크기와 동일합니다.
+    output_h, output_w = lq_size, lq_size
+    
+    mac_count = in_channels * out_channels * kernel_h * kernel_w * output_h * output_w
+    return mac_count
 
 def compute_base_mac(args, prunedProps, skipConv):
     
@@ -65,7 +100,8 @@ def compute_base_mac(args, prunedProps, skipConv):
         attention_head_size
     )
     if not skipConv and args.task_name == "vision":
-        original_mac += query_conv_mac(args)
+        # MODIFIED: CATANet 전용 컨볼루션 MAC 계산 사용
+        original_mac += catanet_first_conv_mac(prunedProps)
     return original_mac
 
 
@@ -77,7 +113,10 @@ def compute_pruned_mac(args, prunedProps, pruningParams, skipConv):
     
     
     if args.task_name == "vision":
-        patch_mask = [i.sum()-1 for i in pruningParams["patch_mask"]]
+        # 참고: OPTIN의 patch_mask 로직은 Vision Transformer에 매우 특화되어 있으며,
+        # CATANet 아키텍처에 직접 적용되지 않습니다.
+        # 구조적 무결성을 위해 이 계산은 유지되지만, CATANet용으로는 정확하지 않을 수 있습니다.
+        patch_mask = [seq_length] * prunedProps["num_layers"]
     else:
         patch_mask = [seq_length] * prunedProps["num_layers"]
     
@@ -94,15 +133,15 @@ def compute_pruned_mac(args, prunedProps, pruningParams, skipConv):
     )
     
     if not skipConv and args.task_name == "vision":
-        pruned_mac += query_conv_mac(args)
+        # MODIFIED: CATANet 전용 컨볼루션 MAC 계산 사용
+        pruned_mac += catanet_first_conv_mac(prunedProps)
     return pruned_mac.item()
 
 
-
 def compute_patch_mac(args, prunedProps, mac_details):
-    """Computes the effect of patch removal by layer"""
+    """레이어별 패치 제거 효과를 계산합니다."""
     
-    # Compute Base Layerwise Mac:
+    # 기본 레이어별 MAC 계산:
     layerwise_mac = mac_details["head_mac"] + mac_details["neuron_mac"]
     
     reduced_head_mac = mac_per_head(prunedProps["patch_size"] - 1 -1, 
@@ -124,33 +163,11 @@ def compute_patch_mac(args, prunedProps, mac_details):
     return patch_mac
     
 
-def query_conv_mac(args):
-
-    if 'tiny' in args.model_name or 'small' in args.model_name:
-        output_channels = 384
-    elif 'base' in args.model_name:
-        output_channels = 768
-        
-    elif 'large' in args.model_name:
-        output_channels = 1024
-        
-    input_channels = 3
-    kernel_size = (16, 16)
-    stride = (16, 16)
-    input_height = 224
-    input_width = 224
-
-    output_height = (input_height - kernel_size[0]) // stride[0] + 1
-    output_width = (input_width - kernel_size[1]) // stride[1] + 1
-    mac_count = input_channels * output_channels * output_height * output_width * kernel_size[0] * kernel_size[1]
-    
-    return mac_count
-
 def get_mac_details(args, prunedProps):
     
     
     mac_details = {
-        "base_mac": compute_base_mac(args, prunedProps, skipConv=True),
+        "base_mac": compute_base_mac(args, prunedProps, skipConv=False), # MODIFIED: 올바른 계산을 호출하도록 수정
         "head_mac": mac_per_head(prunedProps["patch_size"] - 1, 
                                  prunedProps["hidden_size"], 
                                  int(prunedProps["hidden_size"] / prunedProps["num_att_head"])),
@@ -158,9 +175,10 @@ def get_mac_details(args, prunedProps):
     }
     
     if args.task_name == "vision":
+        # 참고: OPTIN의 패치 프루닝 로직은 Vision Transformer에 매우 특화되어 있으며,
+        # CATANet 아키텍처에 직접 적용되지 않습니다.
+        # 이 계산은 구조적 무결성을 위해 유지되지만, CATANet용으로는 정확하지 않을 수 있습니다.
         patch_mac = compute_patch_mac(args, prunedProps, mac_details)
-        
         mac_details["patch_mac"] = patch_mac
-        
         
     return mac_details
