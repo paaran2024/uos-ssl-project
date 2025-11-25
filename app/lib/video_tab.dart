@@ -1,10 +1,11 @@
 import 'dart:io';
+import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
-import 'dart:async';
-import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:emutest/media_store_saver.dart';
+
 
 class VideoTab extends StatefulWidget {
   const VideoTab({super.key});
@@ -20,35 +21,6 @@ class _VideoTabState extends State<VideoTab> {
 
   VideoPlayerController? _inputController;
   VideoPlayerController? _outputController;
-
-  Future<void> _downloadOutputVideo() async {
-    if (_outputVideo == null) return;
-
-    // 권한 확인
-    var status = await Permission.storage.request();
-    if (!status.isGranted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("저장 권한이 필요합니다.")),
-      );
-      return;
-    }
-
-    // 2. 저장 경로: Movies 폴더
-    Directory? dir = Directory("/storage/emulated/0/Movies");
-    if (!await dir.exists()) {
-      dir = await getExternalStorageDirectory();
-    }
-
-    final filename = "output_${DateTime.now().millisecondsSinceEpoch}.mp4";
-    final newPath = "${dir!.path}/$filename";
-
-    // 3. 파일 복사
-    await File(_outputVideo!.path).copy(newPath);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("저장 완료: $filename")),
-    );
-  }
 
   // 비디오 선택
   Future<void> _pickVideo() async {
@@ -76,9 +48,10 @@ class _VideoTabState extends State<VideoTab> {
 
     final stopwatch = Stopwatch()..start();
 
-    // AI 모델 처리
+    // AI 모델 처리 (예시)
     await Future.delayed(const Duration(milliseconds: 300));
 
+    // 변환된 비디오 파일은 입력 비디오와 동일하다고 가정
     _outputVideo = _inputVideo;
 
     stopwatch.stop();
@@ -90,6 +63,26 @@ class _VideoTabState extends State<VideoTab> {
       ..initialize().then((_) => setState(() {}));
 
     setState(() {});
+  }
+
+  // 모바일 갤러리 저장
+  Future<void> _saveOutputVideoToGallery() async {
+    if (_outputVideo == null) return;
+
+    try {
+      final Uint8List bytes = await _outputVideo!.readAsBytes();
+
+      bool ok = await MediaStoreSaver.saveVideo(bytes);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(ok ? "갤러리에 저장됨" : "저장 실패")),
+      );
+    } catch (e) {
+      print("비디오 저장 중 오류 발생: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("비디오 저장 실패")),
+      );
+    }
   }
 
   @override
@@ -126,7 +119,7 @@ class _VideoTabState extends State<VideoTab> {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: _inputVideo == null
-                  ? const Center(child: Text("입력 영상"))
+                  ? const Center(child: Text("입력 영상 선택"))
                   : _inputController!.value.isInitialized
                   ? Stack(
                 children: [
@@ -227,6 +220,7 @@ class _VideoTabState extends State<VideoTab> {
 
           const SizedBox(height: 20),
 
+          // 변환 버튼
           ElevatedButton(
             onPressed: _convertVideo,
             child: const Text("변환"),
@@ -234,11 +228,10 @@ class _VideoTabState extends State<VideoTab> {
 
           const SizedBox(height: 16),
 
-          // 다운로드 버튼
-          ElevatedButton.icon(
-            onPressed: _outputVideo == null ? null : _downloadOutputVideo,
-            icon: const Icon(Icons.download),
-            label: const Text("영상 다운로드"),
+          // 갤러리에 저장 버튼
+          ElevatedButton(
+            onPressed: _outputVideo == null ? null : _saveOutputVideoToGallery,
+            child: const Text("갤러리에 저장"),
           ),
 
           const SizedBox(height: 16),
@@ -331,7 +324,7 @@ class _FullScreenVideoPlayerState extends State<FullScreenVideoPlayer>
     widget.controller.seekTo(target);
   }
 
-  //seek bar
+  // 시크바
   Widget _buildSeekBar() {
     final pos = widget.controller.value.position;
     final dur = widget.controller.value.duration;
@@ -345,8 +338,7 @@ class _FullScreenVideoPlayerState extends State<FullScreenVideoPlayer>
           value: pos.inMilliseconds.clamp(0, dur.inMilliseconds).toDouble(),
           onChangeStart: (_) => _hideTimer?.cancel(),
           onChanged: (value) {
-            widget.controller.seekTo(
-                Duration(milliseconds: value.toInt()));
+            widget.controller.seekTo(Duration(milliseconds: value.toInt()));
             setState(() {});
           },
           onChangeEnd: (_) => _startHideTimer(),
@@ -361,11 +353,9 @@ class _FullScreenVideoPlayerState extends State<FullScreenVideoPlayer>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: _toggleControls,
-
         child: Stack(
           alignment: Alignment.center,
           children: [

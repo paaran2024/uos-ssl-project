@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:emutest/media_store_saver.dart';
 
 class PictureTab extends StatefulWidget {
   const PictureTab({super.key});
@@ -39,6 +40,7 @@ class _PictureTabState extends State<PictureTab> {
 
     final stopwatch = Stopwatch()..start();
 
+    // 이미지 변환 로직
     await Future.delayed(const Duration(milliseconds: 300));
     _outputBytes = _inputBytes;
 
@@ -99,7 +101,7 @@ class _PictureTabState extends State<PictureTab> {
 
         const SizedBox(height: 20),
 
-        //  버튼
+        // 변환 버튼
         ElevatedButton(
           onPressed: _convertImage,
           child: const Text("변환"),
@@ -107,7 +109,20 @@ class _PictureTabState extends State<PictureTab> {
 
         const SizedBox(height: 16),
 
-        //  Inference time
+        // 갤러리에 저장 버튼
+        ElevatedButton(
+          onPressed: _outputBytes == null
+              ? null
+              : () async {
+            bool ok = await MediaStoreSaver.saveImage(_outputBytes!);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(ok ? "갤러리에 저장됨!" : "저장 실패")),
+            );
+          },
+          child: const Text("갤러리에 저장"),
+        ),
+
+        // Inference time
         Text(
           "inference time: $_inferenceTime",
           style: const TextStyle(fontSize: 16),

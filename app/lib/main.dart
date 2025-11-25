@@ -31,12 +31,12 @@ class _HomeScreenState extends State<HomeScreen> {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text("My Study App"),
+          title: const Text("Ondevice"),
           centerTitle: false,
           bottom: PreferredSize(
             preferredSize: Size.fromHeight(1),
             child: Container(
-              color: Colors.grey.shade300,
+              color: Colors.grey.shade300,   // 구분선 색
               height: 1,
             ),
           ),
