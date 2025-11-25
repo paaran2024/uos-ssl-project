@@ -1,4 +1,4 @@
-package com.example.emutest
+package com.example.app
 
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
