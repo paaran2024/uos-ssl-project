@@ -1,15 +1,20 @@
+--extra-index-url https://download.pytorch.org/whl/cu121
+torch>=2.2.0
+torchvision>=0.16.0
+torchaudio>=2.1.0
+numpy>=1.17
+scikit-learn
+matplotlib
 addict
 future
 lmdb
-numpy>=1.17
-opencv-python
+opencv-python-headless
 Pillow
 pyyaml
 requests
 scikit-image
 scipy
 tb-nightly
-torch>=2.1
-torchvision
 tqdm
 yapf
+einops
