@@ -1,8 +1,20 @@
 --extra-index-url https://download.pytorch.org/whl/cu121
-torch==2.1.1+cu121
-torchvision==0.16.1+cu121
-torchaudio==2.1.1+cu121
-numpy
+torch>=2.2.0
+torchvision>=0.16.0
+torchaudio>=2.1.0
+numpy>=1.17
 scikit-learn
-tqdm
 matplotlib
+addict
+future
+lmdb
+opencv-python-headless
+Pillow
+pyyaml
+requests
+scikit-image
+scipy
+tb-nightly
+tqdm
+yapf
+einops
