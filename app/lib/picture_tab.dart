@@ -1,10 +1,13 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:emutest/media_store_saver.dart';
 
 class PictureTab extends StatefulWidget {
+  const PictureTab({super.key});
+
   @override
-  _PictureTabState createState() => _PictureTabState();
+  State<PictureTab> createState() => _PictureTabState();
 }
 
 class _PictureTabState extends State<PictureTab> {
@@ -12,111 +15,121 @@ class _PictureTabState extends State<PictureTab> {
   Uint8List? _outputBytes;
   String _inferenceTime = "";
 
-  // 웹/PC/모바일 공통 이미지 선택
-  Future<void> _pickImageWeb() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-      withData: true,
-    );
+  Future<void> _pickImage() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? picked = await picker.pickImage(
+        source: ImageSource.gallery,
+      );
 
-    if (result != null) {
-      setState(() {
-        _inputBytes = result.files.first.bytes;
-        _outputBytes = null;
-        _inferenceTime = "";
-      });
-
-      _runSuperResolution();
+      if (picked != null) {
+        final bytes = await picked.readAsBytes();
+        setState(() {
+          _inputBytes = bytes;
+          _outputBytes = null;
+          _inferenceTime = "";
+        });
+      }
+    } catch (e) {
+      print("이미지 선택 에러: $e");
     }
   }
 
-  // 더미 복원 처리
-  Future<void> _runSuperResolution() async {
+  Future<void> _convertImage() async {
     if (_inputBytes == null) return;
 
     final stopwatch = Stopwatch()..start();
 
-    // AI 로직 들어가는 곳
-    await Future.delayed(Duration(seconds: 2));
+    // 이미지 변환 로직
+    await Future.delayed(const Duration(milliseconds: 300));
+    _outputBytes = _inputBytes;
 
     stopwatch.stop();
 
     setState(() {
-      _outputBytes = _inputBytes; // 임시
-      _inferenceTime =
-      "${(stopwatch.elapsedMilliseconds / 1000).toStringAsFixed(3)} sec";
+      _inferenceTime = "${stopwatch.elapsedMilliseconds} ms";
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  children: [
-                    Text("입력 이미지", style: TextStyle(fontSize: 18)),
-                    SizedBox(height: 10),
-
-                    GestureDetector(
-                      onTap: _pickImageWeb,
-                      child: Container(
-                        height: 300,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade300,   // 회색 배경
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: _inputBytes == null
-                            ? Center(child: Text("이미지 선택"))
-                            : Image.memory(_inputBytes!, fit: BoxFit.cover),
-                      ),
-                    ),
-                  ],
+    return Column(
+      children: [
+        const SizedBox(height: 15),
+        Row(
+          children: [
+            // 입력 이미지
+            Expanded(
+              child: GestureDetector(
+                onTap: _pickImage,
+                child: Container(
+                  height: 300,
+                  margin: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: _inputBytes == null
+                      ? const Center(child: Text("입력 이미지"))
+                      : ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.memory(_inputBytes!, fit: BoxFit.cover),
+                  ),
                 ),
-              ),
-
-              SizedBox(width: 20),
-
-              Expanded(
-                child: Column(
-                  children: [
-                    Text("출력 이미지", style: TextStyle(fontSize: 18)),
-                    SizedBox(height: 10),
-
-                    Container(
-                      height: 300,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,   // 회색 배경
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: _outputBytes == null
-                          ? Center(child: Text("출력 이미지"))
-                          : Image.memory(_outputBytes!, fit: BoxFit.cover),
-                    ),
-
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          Expanded(
-            child: Center(
-              child: Text(
-                _inferenceTime.isEmpty
-                    ? "Inference time: -"
-                    : "Inference time: $_inferenceTime",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ),
-          ),
-        ],
-      ),
+
+            // 출력 이미지
+            Expanded(
+              child: Container(
+                height: 300,
+                margin: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: _outputBytes == null
+                    ? const Center(child: Text("출력 이미지"))
+                    : ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.memory(_outputBytes!, fit: BoxFit.cover),
+                ),
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 20),
+
+        // 변환 버튼
+        ElevatedButton(
+          onPressed: _convertImage,
+          child: const Text("변환"),
+        ),
+
+        const SizedBox(height: 16),
+
+        // 갤러리에 저장 버튼
+        ElevatedButton(
+          onPressed: _outputBytes == null
+              ? null
+              : () async {
+            bool ok = await MediaStoreSaver.saveImage(_outputBytes!);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(ok ? "갤러리에 저장됨!" : "저장 실패")),
+            );
+          },
+          child: const Text("갤러리에 저장"),
+        ),
+
+        // Inference time
+        Text(
+          "inference time: $_inferenceTime",
+          style: const TextStyle(fontSize: 16),
+        ),
+
+        const SizedBox(height: 20),
+      ],
     );
   }
 }
