@@ -4,8 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
-import 'package:emutest/media_store_saver.dart';
-
+import 'media_store_saver.dart'; // 오류 해결됨
 
 class VideoTab extends StatefulWidget {
   const VideoTab({super.key});
@@ -74,11 +73,13 @@ class _VideoTabState extends State<VideoTab> {
 
       bool ok = await MediaStoreSaver.saveVideo(bytes);
 
+      if (!context.mounted) return; // 오류 해결됨
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(ok ? "갤러리에 저장됨" : "저장 실패")),
       );
     } catch (e) {
       print("비디오 저장 중 오류 발생: $e");
+      if (!context.mounted) return; // 오류 해결됨
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("비디오 저장 실패")),
       );
@@ -116,10 +117,27 @@ class _VideoTabState extends State<VideoTab> {
               margin: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: Colors.grey.shade300,
+                shape: BoxShape.rectangle,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: _inputVideo == null
-                  ? const Center(child: Text("입력 영상 선택"))
+                  ? Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.file_upload_outlined, color: Colors.white, size: 24),
+                            SizedBox(width: 8),
+                            Text("video upload", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 16)),
+                          ],
+                        ),
+                      ),
+                    )
                   : _inputController!.value.isInitialized
                   ? Stack(
                 children: [
@@ -165,10 +183,11 @@ class _VideoTabState extends State<VideoTab> {
             margin: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: Colors.grey.shade300,
+              shape: BoxShape.rectangle,
               borderRadius: BorderRadius.circular(10),
             ),
             child: _outputVideo == null
-                ? const Center(child: Text("출력 영상"))
+                ? const Center(child: Text("output video"))
                 : _outputController!.value.isInitialized
                 ? Stack(
               children: [
@@ -220,19 +239,43 @@ class _VideoTabState extends State<VideoTab> {
 
           const SizedBox(height: 20),
 
-          // 변환 버튼
-          ElevatedButton(
-            onPressed: _convertVideo,
-            child: const Text("변환"),
-          ),
-
-          const SizedBox(height: 16),
-
-          // 갤러리에 저장 버튼
-          ElevatedButton(
-            onPressed: _outputVideo == null ? null : _saveOutputVideoToGallery,
-            child: const Text("갤러리에 저장"),
-          ),
+          // 버튼 전환 로직
+          if (_outputVideo == null)
+            ElevatedButton(
+              onPressed: _convertVideo,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.cached_rounded),
+                  SizedBox(width: 8),
+                  Text("video upscaling", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            )
+          else
+            ElevatedButton(
+              onPressed: _saveOutputVideoToGallery,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.download_rounded),
+                  SizedBox(width: 8),
+                  Text("video download", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
 
           const SizedBox(height: 16),
 
