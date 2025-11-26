@@ -52,9 +52,9 @@ class CATANetModelHooking:
         self.register_forward_hooks()
         
         # 마스크(예: 뉴런 가지치기)를 적용하기 위한 pre-hook을 등록합니다.
-        if self.maskProps.get('state') == 'neuron':
+        if self.maskProps and self.maskProps.get('state') == 'neuron':
             self.register_neuron_pre_hook()
-        elif self.maskProps.get('state') == 'head':
+        elif self.maskProps and self.maskProps.get('state') == 'head':
             # FIX: Implement the head pruning hook registration
             self.register_head_pre_hook()
             
@@ -175,9 +175,8 @@ class CATANetModelHooking:
                 - layer_wise_output (list): 캡처된 중간 출력들의 리스트.
         """
         self.layer_outputs = [] # 이전 출력 지우기
-        with torch.no_grad():
-            # `CATANet`의 forward 메서드는 딕셔너리가 아닌 단일 텐서를 기대합니다.
-            output_image = self.model(input_tensor)
+        # `CATANet`의 forward 메서드는 딕셔너리가 아닌 단일 텐서를 기대합니다.
+        output_image = self.model(input_tensor)
         
         # 캡처된 출력은 hook에 의해 채워진 self.layer_outputs에 있습니다.
         return output_image, self.layer_outputs
