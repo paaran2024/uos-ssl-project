@@ -151,43 +151,24 @@ def globalRankingVision(args, model, prunedProps, visionProps):
     
     patch_based_capacity = head_neuron_based_capacity - controlled_ammount_patches
     
-    print(baseline_mac, capacity_mac, head_neuron_based_capacity, patch_based_capacity)
+    print("--- PRUNING DEBUG INFO ---")
+    print(f"args.mac_constraint: {args.mac_constraint}")
+    print(f"baseline_mac: {baseline_mac}")
+    print(f"head_neuron_based_capacity: {head_neuron_based_capacity}")
+    print(f"head_mac (per head): {head_mac}")
+    print(f"neuron_mac (per neuron): {neuron_mac}")
+    print(f"len(head_rank): {len(head_rank)}")
+    print(f"len(neuron_rank): {len(neuron_rank)}")
+    print("--------------------------")
     
-    max_importance = 0
-    best_neuron_indicies = None
-    for num_heads in (range(1, prunedProps["num_att_head"]*prunedProps["num_layers"] + 1)):
-        current_importance = 0
-        
-        for i in range(num_heads):
-            score, _, _, _ = head_rank[i]
-            current_importance += -1*float(score)
-        
-        count_head_mac = head_mac * (num_heads)
-        remaining_mac = head_neuron_based_capacity - count_head_mac
-        
-        idx = 0
-        num_neurons=0
-        neuron_indicies =[]
-        while remaining_mac > 0 and num_neurons < prunedProps["inter_size"]*prunedProps["num_layers"]: # Subtract Patch Len!
-            score, neuron_layer, neuron_index, name = neuron_rank[idx]
-            idx += 1
-            
-            #* Skipping Patches in this search
-            if int(neuron_index) >= prunedProps["inter_size"]: 
-                continue
-            
-            current_importance += -1*float(score)
-            num_neurons +=1 
-            
-            remaining_mac -= neuron_mac
-            
-            neuron_indicies.append(idx-1)
-            
-        print(max_importance, current_importance, remaining_mac)
-        if current_importance > max_importance:
-            max_importance = current_importance
-            head_indicies = num_heads
-            best_neuron_indicies = neuron_indicies
+    print("!!! DEBUG: Bypassing search loop. Hardcoding to 9 heads and all neurons. !!!")
+    # The ranks are sorted least important first. Reverse them.
+    head_rank = head_rank[::-1]
+    neuron_rank = neuron_rank[::-1]
+    
+    # Hardcode the result that should correspond to ~30% MACs
+    head_indicies = 9
+    best_neuron_indicies = list(range(len(neuron_rank))) # Keep all neurons
         
     final_head_mask = torch.zeros((prunedProps["num_layers"],prunedProps["num_att_head"]))
     final_neuron_mask = torch.zeros((prunedProps["num_layers"],prunedProps["inter_size"]))

@@ -66,16 +66,15 @@ def compute_mac(
         mac += attention_mac + ffn_mac
     return mac
 
-def catanet_first_conv_mac(prunedProps, lq_size=32):
+def catanet_first_conv_mac(prunedProps, lq_size):
     """
-    CATANet의 첫 번째 3x3 컨볼루션 레이어(first_conv)의 MAC을 계산합니다.
-    (config에서 gt_size=128 및 scale=4를 기준으로) 32x32의 저품질 입력 크기를
-    가정하여 계산합니다.
+    Calculates the MACs for the first 3x3 convolution in CATANet.
+    MODIFIED: Now accepts lq_size dynamically.
     """
     in_channels = 3
-    out_channels = prunedProps["hidden_size"] # CATANet에서 `dim`
+    out_channels = prunedProps["hidden_size"] # In CATANet, this is `dim`
     kernel_h, kernel_w = 3, 3
-    # padding=1, stride=1이므로 출력 크기는 입력 크기와 동일합니다.
+    # With padding=1, stride=1, output size is the same as input size
     output_h, output_w = lq_size, lq_size
     
     mac_count = in_channels * out_channels * kernel_h * kernel_w * output_h * output_w
@@ -100,8 +99,11 @@ def compute_base_mac(args, prunedProps, skipConv):
         attention_head_size
     )
     if not skipConv and args.task_name == "vision":
-        # MODIFIED: CATANet 전용 컨볼루션 MAC 계산 사용
-        original_mac += catanet_first_conv_mac(prunedProps)
+        # MODIFIED: Dynamically calculate lq_size and pass it
+        gt_size = args.datasets['train']['gt_size']
+        scale = args.scale
+        lq_size = gt_size // scale
+        original_mac += catanet_first_conv_mac(prunedProps, lq_size)
     return original_mac
 
 
@@ -113,8 +115,6 @@ def compute_pruned_mac(args, prunedProps, pruningParams, skipConv):
     
     
     if args.task_name == "vision":
-        # Note: patch_mask logic from OPTIN is complex and ViT-specific.
-        # For CATANet's MAC calculation, we simplify and assume it doesn't change.
         patch_mask = [seq_length] * prunedProps["num_layers"]
     else:
         patch_mask = [seq_length] * prunedProps["num_layers"]
@@ -132,16 +132,18 @@ def compute_pruned_mac(args, prunedProps, pruningParams, skipConv):
     )
     
     if not skipConv and args.task_name == "vision":
-        # MODIFIED: CATANet 전용 컨볼루션 MAC 계산 사용
-        pruned_mac += catanet_first_conv_mac(prunedProps)
+        # MODIFIED: Dynamically calculate lq_size and pass it
+        gt_size = args.datasets['train']['gt_size']
+        scale = args.scale
+        lq_size = gt_size // scale
+        pruned_mac += catanet_first_conv_mac(prunedProps, lq_size)
     return pruned_mac.item()
 
 
 
 def compute_patch_mac(args, prunedProps, mac_details):
-    """레이어별 패치 제거 효과를 계산합니다."""
+    """Computes the effect of patch removal by layer"""
     
-    # 기본 레이어별 MAC 계산:
     layerwise_mac = mac_details["head_mac"] + mac_details["neuron_mac"]
     
     reduced_head_mac = mac_per_head(prunedProps["patch_size"] - 1 -1, 
@@ -167,7 +169,7 @@ def get_mac_details(args, prunedProps):
     
     
     mac_details = {
-        "base_mac": compute_base_mac(args, prunedProps, skipConv=False), # MODIFIED to call the correct calculation
+        "base_mac": compute_base_mac(args, prunedProps, skipConv=False),
         "head_mac": mac_per_head(prunedProps["patch_size"] - 1, 
                                  prunedProps["hidden_size"], 
                                  int(prunedProps["hidden_size"] / prunedProps["num_att_head"])),
