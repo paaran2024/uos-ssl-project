@@ -82,8 +82,15 @@ def main():
     pruningParams, baselineComplexity, prunedComplexity = pruneModel(args, teacher_model, train_dataset, model_config)
     print("--- 모델 프루닝 완료---")
 
-    # --- 5. 프루닝된 모델 저장 ---
+    # --- 5. 프루닝된 모델 및 마스크 저장 ---
+    # MODIFIED: Save the pruning parameters (masks) as well
     pruned_model_save_path = os.path.join('weights', 'catanet_pruned.pth')
+    pruning_masks_save_path = os.path.join('weights', 'catanet_pruning_masks.pth')
+    
+    print(f"프루닝 마스크를 '{pruning_masks_save_path}'에 저장합니다...")
+    torch.save(pruningParams, pruning_masks_save_path)
+    print("마스크 저장 완료.")
+
     apply_and_save_pruned_model(teacher_model, pruningParams, pruned_model_save_path)
     print("\n")
 
