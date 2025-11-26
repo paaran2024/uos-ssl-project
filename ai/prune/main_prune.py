@@ -149,61 +149,62 @@ def globalRankingVision(args, model, prunedProps, visionProps):
     
     head_neuron_based_capacity = baseline_mac - controlled_ammount_head_neuron
     
-        # --- [핵심 수정] 여기서부터 가지치기 조합을 찾는 탐색 알고리즘이 시작됩니다. ---
-        # 이전 코드의 논리적 오류로 인해 mac_constraint 설정이 무시되는 문제가 있었습니다.
-        # 아래 두 가지 수정을 통해 이 문제를 해결했습니다.
+    # --- [핵심 수정] 여기서부터 가지치기 조합을 찾는 탐색 알고리즘이 시작됩니다. ---
+    # 이전 코드의 논리적 오류로 인해 mac_constraint 설정이 무시되는 문제가 있었습니다.
+    # 아래 두 가지 수정을 통해 이 문제를 해결했습니다.
+
+    # 1. [수정] 중요도 순위 리스트 뒤집기
+    # head_rank와 neuron_rank는 점수(손실)가 낮은 순(덜 중요한 순)으로 정렬되어 있습니다.
+    # 가장 중요한 헤드/뉴런부터 고려하기 위해 리스트 순서를 뒤집습니다.
+    head_rank = head_rank[::-1]
+    neuron_rank = neuron_rank[::-1]
     
-        # 1. [수정] 중요도 순위 리스트 뒤집기
-        # head_rank와 neuron_rank는 점수(손실)가 낮은 순(덜 중요한 순)으로 정렬되어 있습니다.
-        # 가장 중요한 헤드/뉴런부터 고려하기 위해 리스트 순서를 뒤집습니다.
-        head_rank = head_rank[::-1]
-        neuron_rank = neuron_rank[::-1]
-        
-        # 2. [수정] max_importance 초기값 변경
-        # 중요도 점수가 음수이므로, 최적의 값(가장 0에 가까운 음수)을 찾기 위해
-        # 초기값을 0이 아닌 음의 무한대로 설정합니다.
-        max_importance = -float('inf')
-        best_neuron_indicies = None
-        
-        # 반복문을 통해 (유지할 헤드 개수)를 1개부터 전체 개수까지 늘려가며
-        # 예산(head_neuron_based_capacity) 내에서 최적의 헤드/뉴런 조합을 찾습니다.
-        for num_heads in (range(1, prunedProps["num_att_head"]*prunedProps["num_layers"] + 1)):
-            current_importance = 0
-            
-            # 가장 중요한 헤드부터 num_heads 개수만큼의 중요도 점수를 합산합니다.
-            for i in range(num_heads):
-                score, _, _, _ = head_rank[i]
-                current_importance += -1*float(score)
-            
-            count_head_mac = head_mac * (num_heads)
-            remaining_mac = head_neuron_based_capacity - count_head_mac
-            
-            idx = 0
-            num_neurons=0
-            neuron_indicies =[]
-            # 남은 예산을 가장 중요한 뉴런부터 순서대로 채워 넣습니다.
-            while remaining_mac > 0 and num_neurons < prunedProps["inter_size"]*prunedProps["num_layers"]:
-                score, neuron_layer, neuron_index, name = neuron_rank[idx]
-                idx += 1
-                
-                #* Skipping Patches in this search
-                if int(neuron_index) >= prunedProps["inter_size"]:
-                    continue
-                
-                current_importance += -1*float(score)
-                num_neurons +=1 
-                
-                remaining_mac -= neuron_mac
-                
-                neuron_indicies.append(idx-1)
+    # 2. [수정] max_importance 초기값 변경
+    # 중요도 점수가 음수이므로, 최적의 값(가장 0에 가까운 음수)을 찾기 위해
+    # 초기값을 0이 아닌 음의 무한대로 설정합니다.
+    max_importance = -float('inf')
+    best_neuron_indicies = None
     
-            # 현재 조합의 점수가 이전에 찾은 최적의 점수보다 높으면, 최적의 조합으로 업데이트합니다.
-            if current_importance > max_importance:
-                max_importance = current_importance
-                head_indicies = num_heads
-                best_neuron_indicies = neuron_indicies
+    # 반복문을 통해 (유지할 헤드 개수)를 1개부터 전체 개수까지 늘려가며
+    # 예산(head_neuron_based_capacity) 내에서 최적의 헤드/뉴런 조합을 찾습니다.
+    for num_heads in (range(1, prunedProps["num_att_head"]*prunedProps["num_layers"] + 1)):
+        current_importance = 0
+        
+        # 가장 중요한 헤드부터 num_heads 개수만큼의 중요도 점수를 합산합니다.
+        for i in range(num_heads):
+            score, _, _, _ = head_rank[i]
+            current_importance += -1*float(score)
+        
+        count_head_mac = head_mac * (num_heads)
+        remaining_mac = head_neuron_based_capacity - count_head_mac
+        
+        idx = 0
+        num_neurons=0
+        neuron_indicies =[]
+        # 남은 예산을 가장 중요한 뉴런부터 순서대로 채워 넣습니다.
+        while remaining_mac > 0 and num_neurons < prunedProps["inter_size"]*prunedProps["num_layers"]:
+            score, neuron_layer, neuron_index, name = neuron_rank[idx]
+            idx += 1
             
-        final_head_mask = torch.zeros((prunedProps["num_layers"],prunedProps["num_att_head"]))    final_neuron_mask = torch.zeros((prunedProps["num_layers"],prunedProps["inter_size"]))
+            #* Skipping Patches in this search
+            if int(neuron_index) >= prunedProps["inter_size"]:
+                continue
+            
+            current_importance += -1*float(score)
+            num_neurons +=1 
+            
+            remaining_mac -= neuron_mac
+            
+            neuron_indicies.append(idx-1)
+
+        # 현재 조합의 점수가 이전에 찾은 최적의 점수보다 높으면, 최적의 조합으로 업데이트합니다.
+        if current_importance > max_importance:
+            max_importance = current_importance
+            head_indicies = num_heads
+            best_neuron_indicies = neuron_indicies
+        
+    final_head_mask = torch.zeros((prunedProps["num_layers"],prunedProps["num_att_head"]))
+    final_neuron_mask = torch.zeros((prunedProps["num_layers"],prunedProps["inter_size"]))
     
     #* Populate Head and Neuron only Masks
     for i in range(head_indicies):
