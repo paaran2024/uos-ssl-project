@@ -73,7 +73,8 @@ class CATANetModelHooking:
 
     def _get_head_mask_hook(self, mask, num_heads):
         """
-        주어진 마스크를 사용하여 어텐션 헤드의 출력을 0으로 만드는 pre-hook을 생성합니다.
+        [수정된 부분] 주어진 마스크를 사용하여 어텐션 헤드의 출력을 0으로 만드는 pre-hook을 생성합니다.
+        이 함수는 헤드 중요도 점수가 0으로 계산되는 버그를 해결하기 위해 추가되었습니다.
         """
         def hook(_, inputs):
             # 입력은 튜플이고, 텐서는 첫 번째 요소입니다.
@@ -85,7 +86,7 @@ class CATANetModelHooking:
             # (b, n, h*d) -> (b, n, h, d)
             x = x.view(x.shape[0], x.shape[1], num_heads, head_dim)
             
-            # 마스크를 적용합니다.
+            # 마스크를 적용하여 특정 헤드의 기여도를 0으로 만듭니다.
             # 마스크 형태: (h,) -> 브로드캐스팅을 위해 (1, 1, h, 1)로 재구성
             mask_reshaped = mask.view(1, 1, num_heads, 1).to(x.device)
             x = x * mask_reshaped
@@ -99,10 +100,10 @@ class CATANetModelHooking:
 
     def register_head_pre_hook(self):
         """
-        헤드 프루닝 분석을 위해 어텐션 모듈에 pre-forward hook을 등록합니다.
+        [수정된 부분] 헤드 프루닝 분석을 위해 어텐션 모듈에 pre-forward hook을 등록합니다.
+        이전에는 이 로직이 구현되지 않아 모든 헤드의 중요도 점수가 0이 되는 문제가 있었습니다.
         """
         layer_idx = self.maskProps["layer"]
-        # head_mask는 모든 레이어에 대한 것이며, 현재 레이어의 마스크를 가져옵니다.
         head_mask_for_layer = self.maskProps["mask"][layer_idx] # Shape: (num_heads,)
 
         # IASA와 LRSA의 어텐션 모듈에 hook을 적용해야 합니다.
@@ -113,7 +114,8 @@ class CATANetModelHooking:
             ]
 
             for attn_module in attention_modules:
-                # 최종 프로젝션 레이어에 pre-hook을 등록합니다.
+                # 최종 프로젝션 레이어('proj') 직전에 hook을 걸어,
+                # 특정 헤드의 출력이 0이 되도록 시뮬레이션합니다.
                 target_module = attn_module.proj
                 hook_handle = target_module.register_forward_pre_hook(
                     self._get_head_mask_hook(head_mask_for_layer, attn_module.heads)
