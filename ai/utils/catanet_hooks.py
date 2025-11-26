@@ -55,10 +55,8 @@ class CATANetModelHooking:
         if self.maskProps.get('state') == 'neuron':
             self.register_neuron_pre_hook()
         elif self.maskProps.get('state') == 'head':
-            self.head_mask = self.maskProps.get("mask")
-            # 참고: 실제 헤드 가지치기 로직은 모델의 forward pass에 있어야 하지만,
-            # 여기서는 그렇지 않습니다. 마스크를 설정하지만 모델은 이를 사용하지 않습니다.
-            # 이 부분의 가지치기 로직은 원본 구현에서 불완전한 것으로 보입니다.
+            # FIX: Implement the head pruning hook registration
+            self.register_head_pre_hook()
             
     def purge_hooks(self):
         """등록된 모든 hook을 제거합니다."""
@@ -72,6 +70,57 @@ class CATANetModelHooking:
         def hook(module, input, output):
             self.layer_outputs.append(output)
         return hook
+
+    def _get_head_mask_hook(self, mask, num_heads):
+        """
+        주어진 마스크를 사용하여 어텐션 헤드의 출력을 0으로 만드는 pre-hook을 생성합니다.
+        """
+        def hook(_, inputs):
+            # 입력은 튜플이고, 텐서는 첫 번째 요소입니다.
+            # 입력 텐서 형태: (batch_size, seq_len, total_dim)
+            x = inputs[0]
+            
+            # 헤드 차원을 노출시키기 위해 재구성합니다.
+            head_dim = x.shape[-1] // num_heads
+            # (b, n, h*d) -> (b, n, h, d)
+            x = x.view(x.shape[0], x.shape[1], num_heads, head_dim)
+            
+            # 마스크를 적용합니다.
+            # 마스크 형태: (h,) -> 브로드캐스팅을 위해 (1, 1, h, 1)로 재구성
+            mask_reshaped = mask.view(1, 1, num_heads, 1).to(x.device)
+            x = x * mask_reshaped
+            
+            # 원래 형태로 재구성합니다.
+            # (b, n, h, d) -> (b, n, h*d)
+            x = x.view(x.shape[0], x.shape[1], -1)
+            
+            return (x,)
+        return hook
+
+    def register_head_pre_hook(self):
+        """
+        헤드 프루닝 분석을 위해 어텐션 모듈에 pre-forward hook을 등록합니다.
+        """
+        layer_idx = self.maskProps["layer"]
+        # head_mask는 모든 레이어에 대한 것이며, 현재 레이어의 마스크를 가져옵니다.
+        head_mask_for_layer = self.maskProps["mask"][layer_idx] # Shape: (num_heads,)
+
+        # IASA와 LRSA의 어텐션 모듈에 hook을 적용해야 합니다.
+        try:
+            attention_modules = [
+                self.model.blocks[layer_idx][0].iasa_attn, # TAB의 IASA
+                self.model.blocks[layer_idx][1].layer[0].fn  # LRSA의 Attention
+            ]
+
+            for attn_module in attention_modules:
+                # 최종 프로젝션 레이어에 pre-hook을 등록합니다.
+                target_module = attn_module.proj
+                hook_handle = target_module.register_forward_pre_hook(
+                    self._get_head_mask_hook(head_mask_for_layer, attn_module.heads)
+                )
+                self.registered_hooks.append(hook_handle)
+        except (AttributeError, IndexError) as e:
+            print(f"오류: 헤드 hook을 적용할 레이어 {layer_idx}의 모듈을 찾을 수 없습니다: {e}")
 
     def register_forward_hooks(self):
         """
