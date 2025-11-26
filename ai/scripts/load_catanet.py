@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from ai.models.catanet_arch import CATANet
+from models.catanet_arch import CATANet
 import os
 
 # 이 스크립트는 CATANet-L 모델을 로드하는 커스텀 로더 역할을 합니다.
@@ -22,17 +22,22 @@ def get_catanet_teacher_model(weights_path: str = None, upscale: int = 4):
     print(f"CATANet-L 모델을 생성합니다. Upscale 비율: {upscale}")
 
     # 1. CATANet 모델 아키텍처 인스턴스 생성
-    # ai/models/catanet_arch.py에 정의된 CATANet 클래스를 사용합니다.
-    # in_chans는 입력 이미지 채널 수 (RGB의 경우 3), upscale은 초해상도 비율입니다.
     model = CATANet(in_chans=3, upscale=upscale)
 
     # 2. 사전 훈련된 가중치 로드 (선택 사항)
     if weights_path:
         if os.path.exists(weights_path):
             print(f"사전 훈련된 가중치를 로드합니다: {weights_path}")
-            # 가중치 파일을 로드하고 모델의 state_dict에 적용합니다.
-            # map_location='cpu'를 사용하여 GPU가 없는 환경에서도 로드할 수 있도록 합니다.
-            model.load_state_dict(torch.load(weights_path, map_location='cpu'))
+            loaded_state = torch.load(weights_path, map_location='cpu')
+            
+            # MODIFIED: Check if weights are nested under a 'params' key
+            if 'params' in loaded_state:
+                print("'{params}' 키 아래에 있는 가중치를 추출합니다.")
+                state_dict = loaded_state['params']
+            else:
+                state_dict = loaded_state
+                
+            model.load_state_dict(state_dict)
             print("가중치 로드 성공.")
         else:
             print(f"경고: 지정된 가중치 파일 '{weights_path}'를 찾을 수 없습니다. "

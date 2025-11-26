@@ -15,6 +15,8 @@
     -   이 접근 방식은 데이터셋별 특정 스크립트(예: `div2k.py`)의 필요성을 없애줍니다.
       모든 데이터셋별 정보(파일 경로 및 증강 옵션 등)는 이제 YAML 설정 파일(예: `config_catanet.yml`)에 정의됩니다.
 """
+import torch
+from os import path as osp
 from copy import deepcopy
 
 # `basicsr` 라이브러리는 이제 `ai/basicsr`에 로컬 디렉토리로 존재하므로,
@@ -50,6 +52,11 @@ def generateDataset(args):
         train_opt['phase'] = 'train'
         train_opt['scale'] = args.scale # 모델의 스케일 팩터 전달
         
+        # MODIFIED: CUDA 사용 가능 여부에 따라 pin_memory 및 prefetch_mode를 동적으로 설정
+        if not torch.cuda.is_available():
+            train_opt['pin_memory'] = False
+            train_opt['prefetch_mode'] = 'cpu'
+        
         train_set = build_dataset(train_opt)
         train_loader = build_dataloader(
             train_set,
@@ -66,6 +73,11 @@ def generateDataset(args):
         val_opt['phase'] = 'val'
         val_opt['scale'] = args.scale # 모델의 스케일 팩터 전달
         
+        # MODIFIED: CUDA 사용 가능 여부에 따라 pin_memory 및 prefetch_mode를 동적으로 설정
+        if not torch.cuda.is_available():
+            val_opt['pin_memory'] = False
+            val_opt['prefetch_mode'] = 'cpu'
+
         val_set = build_dataset(val_opt)
         val_loader = build_dataloader(
             val_set,
@@ -77,6 +89,6 @@ def generateDataset(args):
         print(f"'{val_opt['name']}' 데이터셋을 위한 검증 데이터 로더를 성공적으로 생성했습니다. 이미지 수: {len(val_set)}개.")
     
     if train_loader is None and val_loader is None:
-        raise ValueError("데이터 로더를 생성할 수 없습니다. YAML 파일의 'datasets' 설정을 확인하십시오.")
+        raise ValueError("Could not create any dataloader. Check your 'datasets' configuration in the YAML file.")
     
     return train_loader, val_loader, args

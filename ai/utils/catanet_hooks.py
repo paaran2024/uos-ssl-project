@@ -35,7 +35,8 @@ class CATANetModelHooking:
         super(CATANetModelHooking, self).__init__()
         
         self.args = args
-        self.model = model.cuda()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model = model.to(self.device)
         self.maskProps = maskProps
         
         self.layer_outputs = []
@@ -103,7 +104,7 @@ class CATANetModelHooking:
             def hook(_, inputs):
                 # 입력은 튜플이고, 텐서는 첫 번째 요소입니다.
                 # 마스크는 입력 텐서의 모양에 맞게 브로드캐스팅되어야 합니다.
-                return (inputs[0] * mask.cuda(),)
+                return (inputs[0] * mask.to(self.device),)
             
             hook_handle = target_module.register_forward_pre_hook(hook)
             self.registered_hooks.append(hook_handle)

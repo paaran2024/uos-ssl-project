@@ -113,9 +113,8 @@ def compute_pruned_mac(args, prunedProps, pruningParams, skipConv):
     
     
     if args.task_name == "vision":
-        # 참고: OPTIN의 patch_mask 로직은 Vision Transformer에 매우 특화되어 있으며,
-        # CATANet 아키텍처에 직접 적용되지 않습니다.
-        # 구조적 무결성을 위해 이 계산은 유지되지만, CATANet용으로는 정확하지 않을 수 있습니다.
+        # Note: patch_mask logic from OPTIN is complex and ViT-specific.
+        # For CATANet's MAC calculation, we simplify and assume it doesn't change.
         patch_mask = [seq_length] * prunedProps["num_layers"]
     else:
         patch_mask = [seq_length] * prunedProps["num_layers"]
@@ -136,6 +135,7 @@ def compute_pruned_mac(args, prunedProps, pruningParams, skipConv):
         # MODIFIED: CATANet 전용 컨볼루션 MAC 계산 사용
         pruned_mac += catanet_first_conv_mac(prunedProps)
     return pruned_mac.item()
+
 
 
 def compute_patch_mac(args, prunedProps, mac_details):
@@ -167,7 +167,7 @@ def get_mac_details(args, prunedProps):
     
     
     mac_details = {
-        "base_mac": compute_base_mac(args, prunedProps, skipConv=False), # MODIFIED: 올바른 계산을 호출하도록 수정
+        "base_mac": compute_base_mac(args, prunedProps, skipConv=False), # MODIFIED to call the correct calculation
         "head_mac": mac_per_head(prunedProps["patch_size"] - 1, 
                                  prunedProps["hidden_size"], 
                                  int(prunedProps["hidden_size"] / prunedProps["num_att_head"])),
@@ -175,9 +175,6 @@ def get_mac_details(args, prunedProps):
     }
     
     if args.task_name == "vision":
-        # 참고: OPTIN의 패치 프루닝 로직은 Vision Transformer에 매우 특화되어 있으며,
-        # CATANet 아키텍처에 직접 적용되지 않습니다.
-        # 이 계산은 구조적 무결성을 위해 유지되지만, CATANet용으로는 정확하지 않을 수 있습니다.
         patch_mac = compute_patch_mac(args, prunedProps, mac_details)
         mac_details["patch_mac"] = patch_mac
         

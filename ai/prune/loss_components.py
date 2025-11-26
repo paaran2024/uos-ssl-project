@@ -74,7 +74,7 @@ def cnn_mmd(teacher, student):
     return err
 
 
-def KLDiv(base_output_image, pruned_output_image, temp=4):
+def KLDiv(base_output_image, pruned_output_image):
     """
     MODIFIED for Image-to-Image Tasks.
     
@@ -84,8 +84,6 @@ def KLDiv(base_output_image, pruned_output_image, temp=4):
     
     Returns a negative value to maintain the original script's expectation of 
     maximizing a negative importance score (i.e., minimizing the error).
-    
-    The `temp` argument is ignored.
     """
     # The original implementation expected `.logits` on the outputs.
     # We now directly compare the output tensors.

@@ -1,5 +1,6 @@
 import torch
-from prune.language_pruning import pruneLanguageNeurons
+# MODIFIED: Removed unused language_pruning import
+# from prune.language_pruning import pruneLanguageNeurons
 from prune.head_pruning import pruneHead
 from prune.vision_pruning import pruneVisionNeurons
 import numpy as np
@@ -19,35 +20,9 @@ def pruneModel(args, model, train_dataset, model_config):
        "patch_size": args.seq_len+1 
     }
     
-    
-    if args.task_name == "language":
-        
-        head_mask_results = pruneHead(model, train_dataset, args, prunedProps)
-        
-        # Only Prune Heads and Intermediate Neurons
-        intermediate_neuron_results = pruneLanguageNeurons(model, train_dataset, args, prunedProps)
-        
-        
-        languageProps = {
-            "head_results": head_mask_results,
-            "intermediate_results": intermediate_neuron_results,
-            "mac_details": get_mac_details(args, prunedProps)
-            
-        }
-        
-        masks = globalRankingLanguage(args, prunedProps, languageProps)
-        
-        
-        pruningParams = {
-        "head_mask":  masks["head_mask"], 
-        "neuron_mask": masks["intermediate_mask"],
-        }
-        
-        baselineComplexity, prunedComplexity = calculateComplexity(args, model, train_dataset, prunedProps, pruningParams)
-        baselineComplexity = baselineComplexity["MAC"]
-        prunedComplexity = prunedComplexity["MAC"]
-        
-    elif args.task_name == "vision":
+    # MODIFIED: Removed the entire `if args.task_name == "language":` block
+    # as it's not relevant and caused an import error.
+    if args.task_name == "vision":
         head_mask_results = pruneHead(model, train_dataset, args, prunedProps)
         
         intermediate_neuron_results = pruneVisionNeurons(model, train_dataset, args, prunedProps)
@@ -69,6 +44,9 @@ def pruneModel(args, model, train_dataset, model_config):
         
         baselineComplexity = visionProps["mac_details"]["base_mac"]
         
+    else:
+        raise ValueError(f"Task name '{args.task_name}' is not supported for pruning.")
+
     
     return pruningParams,baselineComplexity,prunedComplexity 
 
@@ -77,6 +55,8 @@ def pruneModel(args, model, train_dataset, model_config):
 
 
 def globalRankingLanguage(args, prunedProps, languageProps):
+    # This function is now dead code but is kept in case language tasks are
+    # reintroduced. It will not be called.
     head_mask = languageProps["head_results"]["final_head_ranking"]
     head_rank = [list((tensor_cpu.cpu().detach().item(), *rest)) for tensor_cpu, *rest in head_mask]
     head_rank = np.array(head_rank)

@@ -16,7 +16,7 @@
 3.  모델 및 데이터 전달:
     -   이전: `forwardPass`에 딕셔너리를, hooking 클래스에 `CATANetModel` 객체를
       전달했습니다.
-    -   현재: hooking 클래스에 실제 네트워크인 `model.net_g`를, `forwardPass`에
+    -   현재: hooking 클래스에 실제 네트워크인 `model`을, `forwardPass`에
       `lq_tensor`를 직접 전달합니다.
       
 4.  헤드 프루닝 비호환성:
@@ -52,7 +52,8 @@ def Prune(args, prunedProps, FullHeadMasking, lq_tensor, model, base_layer_wise_
 
         for head in tqdm(range(prunedProps["num_att_head"]), desc=f"Analyzing Heads in Layer {layer}"):
             then = time.time()
-            torch.cuda.synchronize()
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
             
             FullHeadMasking[layer] = PerHeadMasking[head]
             
@@ -89,7 +90,8 @@ def Prune(args, prunedProps, FullHeadMasking, lq_tensor, model, base_layer_wise_
                             MMDLayerResults += err
             
             if args.loss_type == "KL" or args.loss_type == "MMD+KL":    
-                KLErr = KLDiv(base_logit_output, current_logit_output, temp=args.temp)
+                # MODIFIED: Removed temp=args.temp as it's no longer used
+                KLErr = KLDiv(base_logit_output, current_logit_output)
             
             MMDResults = MMDLayerResults + KLErr
             # --- OPTIN 손실 로직 끝 ---
@@ -113,19 +115,19 @@ def pruneHead(model, train_dataset, args, prunedProps):
         FullHeadMasking = torch.ones((prunedProps["num_layers"],prunedProps["num_att_head"]))
         torch.backends.cudnn.benchmark = True
         
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        
         # MODIFIED: 단일 배치를 가져와 'lq' 텐서를 추출합니다
         print("분석을 위해 데이터 로더에서 배치를 가져오는 중...")
         batch = next(iter(train_dataset))
-        lq_tensor = batch['lq'].to("cuda", non_blocking=True)
+        lq_tensor = batch['lq'].to(device, non_blocking=True)
             
-        # 기준 결과 계산
-        # MODIFIED: 실제 네트워크(model.net_g)를 hooking 클래스에 전달합니다
-        catanet_network = model.net_g
-        catanet_network.eval()
+        # MODIFIED: 이 함수에 전달된 `model`이 실제 네트워크이므로 직접 사용합니다.
+        model.eval()
         
         print("가지치기 전 기준 출력 계산 중...")
         # 참고: 기준선 계산을 위해 maskProps 없이 전달합니다.
-        modelObject = CATANetModelHooking(args=args, model=catanet_network, maskProps=None)
+        modelObject = CATANetModelHooking(args=args, model=model, maskProps=None)
         
         # MODIFIED: lq_tensor를 직접 전달합니다
         base_logit_output, base_layer_wise_output = modelObject.forwardPass(lq_tensor)
@@ -134,7 +136,7 @@ def pruneHead(model, train_dataset, args, prunedProps):
        
         print("헤드 중요도 계산 시작...")
         # MODIFIED: lq_tensor와 실제 네트워크를 전달합니다
-        globalHeadRanking, _ = Prune(args, prunedProps, FullHeadMasking, lq_tensor, catanet_network, base_layer_wise_output, base_logit_output)
+        globalHeadRanking, _ = Prune(args, prunedProps, FullHeadMasking, lq_tensor, model, base_layer_wise_output, base_logit_output)
 
         exportglobalHeadRanking = []
         while not globalHeadRanking.empty():
