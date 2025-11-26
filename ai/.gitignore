@@ -118,4 +118,6 @@ dmypy.json
 .pyre/
 
 #datasets
-datasets/
+datasets/DIV2K/
+datasets/BSD100/
+datasets/Urban100/
