@@ -5,11 +5,12 @@
 # --- 모델 및 작업 설정 ---
 model_name: "CATANet-L"
 task_name: "vision"
-scale: 4 # CATANet 모델의 업스케일링 비율
+scale: 2 # MODIFIED for x2 pruning
+seq_len: 4096 # MODIFIED for x2 pruning (64x64 feature map size)
 
 # --- 가중치 파일 경로 ---
-# 중요: 이 경로는 나중에 실제 훈련된 CATANet-L 가중치 파일(.pth)로 교체해야 합니다.
-weights_path: "ai/weights/CATANet-L_x4.pth"
+# MODIFIED: Path updated for an x2 model. User must provide this file.
+weights_path: "weights/CATANet-L_x2.pth"
 
 # --- 프루닝 제약 조건 ---
 # 목표로 하는 연산량(MACs) 비율. 0.5는 원본 모델의 50% 연산량을 의미합니다.
@@ -18,16 +19,14 @@ mac_constraint: 0.5
 beta_config_only: true
 
 # --- 데이터셋 설정 ---
-# OPTIN의 데이터 로더가 이 설정을 사용합니다.
-# 예시로 DIV2K와 Set5 데이터셋을 사용합니다. 실제 사용하는 데이터셋에 맞게 수정해야 합니다.
-dataset: "DIV2K" # 학습 데이터셋 이름
+dataset: "DIV2K"
 datasets:
   train:
     name: DIV2K
     type: PairedImageDataset
     dataroot_gt: datasets/DIV2K/DIV2K_train_HR
-    dataroot_lq: datasets/DIV2K/DIV2K_train_LR_bicubic/X4
-    filename_tmpl: "{}x4"
+    dataroot_lq: datasets/DIV2K/DIV2K_train_LR_bicubic/X2 # MODIFIED for x2
+    filename_tmpl: "{}x2" # MODIFIED for x2
     io_backend:
       type: disk
     gt_size: 128
@@ -44,12 +43,14 @@ datasets:
     name: Set5
     type: PairedImageDataset
     dataroot_gt: datasets/Set5/HR
-    dataroot_lq: datasets/Set5/LR_bicubic/X4
+    dataroot_lq: datasets/Set5/LR_bicubic/X2 # MODIFIED for x2
+    filename_tmpl: "{}x2" # MODIFIED for x2
     io_backend:
       type: disk
 
 # --- 기타 OPTIN 설정 ---
-# 대부분의 경우 기본값을 유지해도 됩니다.
+loss_type: "MMD+KL"
+lambda_contribution: 1.0
 seed: 42
 logging: false
 search_method: "default"
@@ -62,3 +63,4 @@ n_iter: 5
 num_tokens: 16
 group_size: 256
 ema_decay: 0.999
+head_include_fin_layer_mmd: true
