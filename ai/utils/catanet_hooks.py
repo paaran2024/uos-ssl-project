@@ -31,13 +31,14 @@ class CATANetModelHooking:
     PyTorch hook을 사용하여 마스크를 적용하고 가지치기 분석을 위한
     중간 레이어 출력을 캡처합니다.
     """
-    def __init__(self, args, model=None, maskProps=None):
+    def __init__(self, args, model=None, maskProps=None, disable_grad=False): # MODIFIED: disable_grad 추가
         super(CATANetModelHooking, self).__init__()
         
         self.args = args
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model.to(self.device)
         self.maskProps = maskProps
+        self.disable_grad = disable_grad # MODIFIED: disable_grad 저장
         
         self.layer_outputs = []
         self.registered_hooks = []
@@ -48,14 +49,11 @@ class CATANetModelHooking:
 
     def apply_mask_and_hooks(self):
         """maskProps에 따라 마스크를 적용하고 forward hook을 등록합니다."""
-        # 중간 출력을 캡처하기 위한 메인 forward hook을 등록합니다.
         self.register_forward_hooks()
         
-        # 마스크(예: 뉴런 가지치기)를 적용하기 위한 pre-hook을 등록합니다.
         if self.maskProps and self.maskProps.get('state') == 'neuron':
             self.register_neuron_pre_hook()
         elif self.maskProps and self.maskProps.get('state') == 'head':
-            # FIX: Implement the head pruning hook registration
             self.register_head_pre_hook()
             
     def purge_hooks(self):
@@ -72,50 +70,27 @@ class CATANetModelHooking:
         return hook
 
     def _get_head_mask_hook(self, mask, num_heads):
-        """
-        [수정된 부분] 주어진 마스크를 사용하여 어텐션 헤드의 출력을 0으로 만드는 pre-hook을 생성합니다.
-        이 함수는 헤드 중요도 점수가 0으로 계산되는 버그를 해결하기 위해 추가되었습니다.
-        """
         def hook(_, inputs):
-            # 입력은 튜플이고, 텐서는 첫 번째 요소입니다.
-            # 입력 텐서 형태: (batch_size, seq_len, total_dim)
             x = inputs[0]
-            
-            # 헤드 차원을 노출시키기 위해 재구성합니다.
             head_dim = x.shape[-1] // num_heads
-            # (b, n, h*d) -> (b, n, h, d)
             x = x.view(x.shape[0], x.shape[1], num_heads, head_dim)
-            
-            # 마스크를 적용하여 특정 헤드의 기여도를 0으로 만듭니다.
-            # 마스크 형태: (h,) -> 브로드캐스팅을 위해 (1, 1, h, 1)로 재구성
             mask_reshaped = mask.view(1, 1, num_heads, 1).to(x.device)
             x = x * mask_reshaped
-            
-            # 원래 형태로 재구성합니다.
-            # (b, n, h, d) -> (b, n, h*d)
             x = x.view(x.shape[0], x.shape[1], -1)
-            
             return (x,)
         return hook
 
     def register_head_pre_hook(self):
-        """
-        [수정된 부분] 헤드 프루닝 분석을 위해 어텐션 모듈에 pre-forward hook을 등록합니다.
-        이전에는 이 로직이 구현되지 않아 모든 헤드의 중요도 점수가 0이 되는 문제가 있었습니다.
-        """
         layer_idx = self.maskProps["layer"]
-        head_mask_for_layer = self.maskProps["mask"][layer_idx] # Shape: (num_heads,)
+        head_mask_for_layer = self.maskProps["mask"][layer_idx]
 
-        # IASA와 LRSA의 어텐션 모듈에 hook을 적용해야 합니다.
         try:
             attention_modules = [
-                self.model.blocks[layer_idx][0].iasa_attn, # TAB의 IASA
-                self.model.blocks[layer_idx][1].layer[0].fn  # LRSA의 Attention
+                self.model.blocks[layer_idx][0].iasa_attn,
+                self.model.blocks[layer_idx][1].layer[0].fn
             ]
 
             for attn_module in attention_modules:
-                # 최종 프로젝션 레이어('proj') 직전에 hook을 걸어,
-                # 특정 헤드의 출력이 0이 되도록 시뮬레이션합니다.
                 target_module = attn_module.proj
                 hook_handle = target_module.register_forward_pre_hook(
                     self._get_head_mask_hook(head_mask_for_layer, attn_module.heads)
@@ -125,36 +100,18 @@ class CATANetModelHooking:
             print(f"오류: 헤드 hook을 적용할 레이어 {layer_idx}의 모듈을 찾을 수 없습니다: {e}")
 
     def register_forward_hooks(self):
-        """
-        `CATANet`의 원하는 레이어에 forward hook을 등록하여 손실 계산을 위한
-        출력을 캡처합니다.
-        
-        `CATANet`의 경우, 각 메인 블록의 출력인 'mid_convs'의 출력을 hook합니다.
-        """
-        # 대상 레이어는 `forward_features` 루프 내의 `mid_convs`입니다.
-        # 이 모듈들을 hook합니다.
         for i, block_module in enumerate(self.model.mid_convs):
             hook_handle = block_module.register_forward_hook(self._record_layer_output_hook(f"block_{i}"))
             self.registered_hooks.append(hook_handle)
 
     def register_neuron_pre_hook(self):
-        """
-        뉴런 마스크를 적용하기 위해 pre-forward hook을 등록합니다.
-        `ConvFFN` 블록의 활성화 함수에서 특정 뉴런으로의 입력을 0으로 만듭니다.
-        """
         layer_idx = self.maskProps["layer"]
-        mask = self.maskProps["mask"] # 이 마스크는 MLP의 뉴런을 위한 것입니다.
+        mask = self.maskProps["mask"]
         
-        # 대상 모듈은 `ConvFFN`의 첫 번째 선형 레이어(fc1) 뒤의 활성화 함수입니다.
-        # `catanet_arch.py`에서의 이름은 `self.act`입니다.
-        # 경로: blocks -> TAB (idx 0) -> mlp -> fn (ConvFFN) -> act
         try:
             target_module = self.model.blocks[layer_idx][0].mlp.fn.act
             
-            # 이 hook은 활성화 함수에 대한 입력을 마스크와 곱합니다.
             def hook(_, inputs):
-                # 입력은 튜플이고, 텐서는 첫 번째 요소입니다.
-                # 마스크는 입력 텐서의 모양에 맞게 브로드캐스팅되어야 합니다.
                 return (inputs[0] * mask.to(self.device),)
             
             hook_handle = target_module.register_forward_pre_hook(hook)
@@ -165,18 +122,13 @@ class CATANetModelHooking:
     def forwardPass(self, input_tensor):
         """
         hook이 적용된 모델로 forward pass를 수행합니다.
-        
-        인자(Args):
-            input_tensor (Tensor): 모델에 대한 입력 이미지 텐서.
-        
-        반환(Returns):
-            tuple: 다음을 포함하는 튜플입니다:
-                - output_image (Tensor): 모델의 최종 출력.
-                - layer_wise_output (list): 캡처된 중간 출력들의 리스트.
+        `disable_grad` 플래그에 따라 경사도 계산을 제어합니다.
         """
-        self.layer_outputs = [] # 이전 출력 지우기
-        # `CATANet`의 forward 메서드는 딕셔너리가 아닌 단일 텐서를 기대합니다.
-        output_image = self.model(input_tensor)
+        self.layer_outputs = []
+        if self.disable_grad: # MODIFIED: disable_grad에 따라 조건부로 no_grad 적용
+            with torch.no_grad():
+                output_image = self.model(input_tensor)
+        else:
+            output_image = self.model(input_tensor)
         
-        # 캡처된 출력은 hook에 의해 채워진 self.layer_outputs에 있습니다.
         return output_image, self.layer_outputs

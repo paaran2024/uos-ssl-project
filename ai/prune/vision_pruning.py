@@ -68,7 +68,7 @@ def Prune(args, prunedProps, lq_tensor, model, base_layer_wise_output, base_logi
                 "mask": PerNeuronIntermediateMasking[neuron]
             }
                 
-            modelObject = CATANetModelHooking(args=args, model=model, maskProps=maskingProps) # MODIFIED
+            modelObject = CATANetModelHooking(args=args, model=model, maskProps=maskingProps, disable_grad=True) # MODIFIED
             with torch.no_grad():
                 # MODIFIED: Pass the lq_tensor directly
                 current_logit_output, current_layer_wise_output = modelObject.forwardPass(lq_tensor)
@@ -138,7 +138,7 @@ def pruneVisionNeurons(model, train_dataset, args, prunedProps):
         model.eval()
         
         print("가지치기 전 기준 출력 계산 중...")
-        modelObject = CATANetModelHooking(args=args, model=model)
+        modelObject = CATANetModelHooking(args=args, model=model, disable_grad=True)
         
         # MODIFIED: lq_tensor를 직접 전달합니다
         base_logit_output, base_layer_wise_output = modelObject.forwardPass(lq_tensor)

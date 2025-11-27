@@ -72,7 +72,7 @@ def Prune(args, prunedProps, FullHeadMasking, lq_tensor, model, base_layer_wise_
                 "mask": FullHeadMasking
             }
             
-            modelObject = CATANetModelHooking(args=args, model=model, maskProps=maskingProps)
+            modelObject = CATANetModelHooking(args=args, model=model, maskProps=maskingProps, disable_grad=True)
             with torch.no_grad():
                 # MODIFIED: Pass the lq_tensor directly
                 current_logit_output, current_layer_wise_output = modelObject.forwardPass(lq_tensor)
@@ -127,7 +127,7 @@ def pruneHead(model, train_dataset, args, prunedProps):
         
         print("가지치기 전 기준 출력 계산 중...")
         # 참고: 기준선 계산을 위해 maskProps 없이 전달합니다.
-        modelObject = CATANetModelHooking(args=args, model=model, maskProps=None)
+        modelObject = CATANetModelHooking(args=args, model=model, maskProps=None, disable_grad=True)
         
         # MODIFIED: lq_tensor를 직접 전달합니다
         base_logit_output, base_layer_wise_output = modelObject.forwardPass(lq_tensor)
