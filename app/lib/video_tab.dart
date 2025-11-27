@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 
-
 class VideoTab extends StatefulWidget {
   const VideoTab({super.key});
 
@@ -58,8 +57,7 @@ class _VideoTabState extends State<VideoTab> {
     _inferenceTime = "${stopwatch.elapsedMilliseconds} ms";
 
     _outputController?.dispose();
-    _outputController =
-    VideoPlayerController.file(File(_outputVideo!.path))
+    _outputController = VideoPlayerController.file(File(_outputVideo!.path))
       ..initialize().then((_) => setState(() {}));
 
     setState(() {});
@@ -74,14 +72,16 @@ class _VideoTabState extends State<VideoTab> {
 
       bool ok = await MediaStoreSaver.saveVideo(bytes);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ok ? "갤러리에 저장됨" : "저장 실패")),
-      );
+      if (!context.mounted) return; // 오류 해결됨
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(ok ? "갤러리에 저장됨" : "저장 실패")));
     } catch (e) {
       print("비디오 저장 중 오류 발생: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("비디오 저장 실패")),
-      );
+      if (!context.mounted) return; // 오류 해결됨
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("비디오 저장 실패")));
     }
   }
 
@@ -155,6 +155,7 @@ class _VideoTabState extends State<VideoTab> {
               fit: StackFit.expand,
               children: [
                 VideoPlayer(controller),
+
                 // 재생/일시정지 버튼
                 Center(
                   child: IconButton(
@@ -182,8 +183,11 @@ class _VideoTabState extends State<VideoTab> {
                     bottom: 10,
                     right: 10,
                     child: IconButton(
-                      icon: const Icon(Icons.fullscreen,
-                          size: 36, color: Colors.white),
+                      icon: const Icon(
+                        Icons.fullscreen,
+                        size: 36,
+                        color: Colors.white,
+                      ),
                       onPressed: () {
                         _openFullScreen(controller);
                       },
@@ -220,19 +224,59 @@ class _VideoTabState extends State<VideoTab> {
 
           const SizedBox(height: 20),
 
-          // 변환 버튼
-          ElevatedButton(
-            onPressed: _convertVideo,
-            child: const Text("변환"),
-          ),
-
-          const SizedBox(height: 16),
-
-          // 갤러리에 저장 버튼
-          ElevatedButton(
-            onPressed: _outputVideo == null ? null : _saveOutputVideoToGallery,
-            child: const Text("갤러리에 저장"),
-          ),
+          // 버튼 전환 로직
+          if (_outputVideo == null)
+            ElevatedButton(
+              onPressed: _convertVideo,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.cached_rounded),
+                  SizedBox(width: 8),
+                  Text(
+                    "video upscaling",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            )
+          else
+            ElevatedButton(
+              onPressed: _saveOutputVideoToGallery,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.download_rounded),
+                  SizedBox(width: 8),
+                  Text(
+                    "video download",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
 
           const SizedBox(height: 16),
 
@@ -372,80 +416,89 @@ class _FullScreenVideoPlayerState extends State<FullScreenVideoPlayer>
               opacity: _fadeAnimation,
               child: _showControls
                   ? Stack(
-                children: [
-                  // 전체화면 뒤로가기 버튼
-                  Positioned(
-                    top: 40,
-                    left: 20,
-                    child: IconButton(
-                      icon: const Icon(Icons.arrow_back,
-                          color: Colors.white, size: 32),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ),
-
-                  // 중앙 컨트롤러
-                  Center(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // << 10초 되감기
-                        IconButton(
-                          icon: const Icon(Icons.replay_10,
-                              size: 50, color: Colors.white),
-                          onPressed: () {
-                            _seekRelative(-10);
-                            _startHideTimer();
-                          },
-                        ),
-
-                        const SizedBox(width: 40),
-
-                        // 재생 / 일시정지
-                        IconButton(
-                          icon: Icon(
-                            widget.controller.value.isPlaying
-                                ? Icons.pause_circle
-                                : Icons.play_circle,
-                            size: 70,
-                            color: Colors.white,
+                        // 전체화면 뒤로가기 버튼
+                        Positioned(
+                          top: 40,
+                          left: 20,
+                          child: IconButton(
+                            icon: const Icon(
+                              Icons.arrow_back,
+                              color: Colors.white,
+                              size: 32,
+                            ),
+                            onPressed: () => Navigator.pop(context),
                           ),
-                          onPressed: () {
-                            setState(() {
-                              if (widget.controller.value.isPlaying) {
-                                widget.controller.pause();
-                              } else {
-                                widget.controller.play();
-                              }
-                            });
-                            _startHideTimer();
-                          },
                         ),
 
-                        const SizedBox(width: 40),
+                        // 중앙 컨트롤러
+                        Center(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              // << 10초 되감기
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.replay_10,
+                                  size: 50,
+                                  color: Colors.white,
+                                ),
+                                onPressed: () {
+                                  _seekRelative(-10);
+                                  _startHideTimer();
+                                },
+                              ),
 
-                        // >> 10초 빨리감기
-                        IconButton(
-                          icon: const Icon(Icons.forward_10,
-                              size: 50, color: Colors.white),
-                          onPressed: () {
-                            _seekRelative(10);
-                            _startHideTimer();
-                          },
+                              const SizedBox(width: 40),
+
+                              // 재생 / 일시정지
+                              IconButton(
+                                icon: Icon(
+                                  widget.controller.value.isPlaying
+                                      ? Icons.pause_circle
+                                      : Icons.play_circle,
+                                  size: 70,
+                                  color: Colors.white,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    if (widget.controller.value.isPlaying) {
+                                      widget.controller.pause();
+                                    } else {
+                                      widget.controller.play();
+                                    }
+                                  });
+                                  _startHideTimer();
+                                },
+                              ),
+
+                              const SizedBox(width: 40),
+
+                              // >> 10초 빨리감기
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.forward_10,
+                                  size: 50,
+                                  color: Colors.white,
+                                ),
+                                onPressed: () {
+                                  _seekRelative(10);
+                                  _startHideTimer();
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // 하단 시크바
+                        Positioned(
+                          bottom: 20,
+                          left: 0,
+                          right: 0,
+                          child: _buildSeekBar(),
                         ),
                       ],
-                    ),
-                  ),
-
-                  // 하단 시크바
-                  Positioned(
-                    bottom: 20,
-                    left: 0,
-                    right: 0,
-                    child: _buildSeekBar(),
-                  ),
-                ],
-              )
+                    )
                   : const SizedBox.shrink(),
             ),
           ],
