@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:async';
 import 'dart:typed_data';
-import 'package:app/media_store_saver.dart';
+import 'package:contact/media_store_saver.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
