@@ -1,7 +1,7 @@
 import 'dart:typed_data';
+import 'package:app/media_store_saver.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:emutest/media_store_saver.dart';
 
 class PictureTab extends StatefulWidget {
   const PictureTab({super.key});
@@ -18,9 +18,7 @@ class _PictureTabState extends State<PictureTab> {
   Future<void> _pickImage() async {
     try {
       final ImagePicker picker = ImagePicker();
-      final XFile? picked = await picker.pickImage(
-        source: ImageSource.gallery,
-      );
+      final XFile? picked = await picker.pickImage(source: ImageSource.gallery);
 
       if (picked != null) {
         final bytes = await picked.readAsBytes();
@@ -74,7 +72,10 @@ class _PictureTabState extends State<PictureTab> {
                     child: _inputBytes == null
                         ? Center(
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 12,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.grey,
                                 borderRadius: BorderRadius.circular(10),
@@ -82,11 +83,19 @@ class _PictureTabState extends State<PictureTab> {
                               child: const Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.file_upload_outlined, color: Colors.white, size: 24),
+                                  Icon(
+                                    Icons.file_upload_outlined,
+                                    color: Colors.white,
+                                    size: 24,
+                                  ),
                                   SizedBox(width: 8),
                                   Text(
                                     "image upload",
-                                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 16),
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 16,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -94,7 +103,10 @@ class _PictureTabState extends State<PictureTab> {
                           )
                         : ClipRRect(
                             borderRadius: BorderRadius.circular(10),
-                            child: Image.memory(_inputBytes!, fit: BoxFit.cover),
+                            child: Image.memory(
+                              _inputBytes!,
+                              fit: BoxFit.cover,
+                            ),
                           ),
                   ),
                 ),
@@ -121,7 +133,7 @@ class _PictureTabState extends State<PictureTab> {
             ],
           ),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 40),
 
           // 버튼 전환 로직
           if (_outputBytes == null)
@@ -130,15 +142,23 @@ class _PictureTabState extends State<PictureTab> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.orange,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
               ),
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.cached_rounded),
                   SizedBox(width: 8),
-                  Text("image upscaling", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text(
+                    "image upscaling",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
                 ],
               ),
             )
@@ -151,22 +171,30 @@ class _PictureTabState extends State<PictureTab> {
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor:Colors.orange,
+                backgroundColor: Colors.orange,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
               ),
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.download_rounded),
                   SizedBox(width: 8),
-                  Text("image download", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text(
+                    "image download",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
                 ],
               ),
             ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 30),
 
           Text(
             "inference time: $_inferenceTime",

@@ -50,27 +50,32 @@ class _HomeScreenState extends State<HomeScreen> {
                 fontFamily: 'Roboto',
               ),
               children: [
-                TextSpan(text: "Cata", style: TextStyle(color: Colors.orange)),
-                TextSpan(text: "Scaler", style: TextStyle(color: Colors.black)),
+                TextSpan(
+                  text: "Cata",
+                  style: TextStyle(color: Colors.orange),
+                ),
+                TextSpan(
+                  text: "Scaler",
+                  style: TextStyle(color: Colors.black),
+                ),
               ],
             ),
           ),
+
           centerTitle: false,
           bottom: PreferredSize(
             preferredSize: const Size.fromHeight(1),
-            child: Container(
-              color: Colors.grey.shade300,
-              height: 1,
-            ),
+            child: Container(color: Colors.grey.shade300, height: 1),
           ),
         ),
 
         bottomNavigationBar: Container(
-           decoration: const BoxDecoration(
-             border: Border(top: BorderSide(color: Colors.grey, width: 0.5)),
-           ),
-           child: const TabBar(
-            labelColor: Colors.blue,
+          decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: Colors.grey, width: 0.5)),
+          ),
+          child: const TabBar(
+            indicatorColor: Colors.cyan,
+            labelColor: Colors.cyan,
             unselectedLabelColor: Colors.grey,
             tabs: [
               Tab(text: "picture", icon: Icon(Icons.image_outlined)),
@@ -81,10 +86,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
         body: const TabBarView(
           physics: NeverScrollableScrollPhysics(), // 스와이프 방지
-          children: [
-            PictureTab(),
-            VideoTab(),
-          ],
+          children: [PictureTab(), VideoTab()],
         ),
       ),
     );
