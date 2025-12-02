@@ -109,25 +109,60 @@ class _VideoTabState extends State<VideoTab> {
     required bool isInput,
     required VoidCallback? onTap,
   }) {
+    // 비디오가 없을 때
     if (controller == null) {
       return GestureDetector(
-        onTap: onTap,
+        onTap: isInput ? onTap : null, // 입력일 때만 탭 가능
         child: Container(
-          height: 250,
+          height: 300,
           width: double.infinity,
           margin: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             color: Colors.grey.shade300,
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Center(child: Text(placeholderText)),
+          // 입력창일 경우에만 업로드 UI 표시
+          child: isInput
+              ? Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.grey,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.file_upload_outlined,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          placeholderText,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : const SizedBox.shrink(), // 출력창은 비어있음
         ),
       );
     }
 
+    // 비디오 로딩 중
     if (!controller.value.isInitialized) {
       return Container(
-        height: 250,
+        height: 300,
         width: double.infinity,
         margin: const EdgeInsets.all(8),
         decoration: BoxDecoration(
@@ -138,9 +173,11 @@ class _VideoTabState extends State<VideoTab> {
       );
     }
 
+    // 비디오 재생 화면
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        height: 300,
         width: double.infinity,
         margin: const EdgeInsets.all(8),
         decoration: BoxDecoration(
@@ -149,52 +186,52 @@ class _VideoTabState extends State<VideoTab> {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(10),
-          child: AspectRatio(
-            aspectRatio: controller.value.aspectRatio,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                VideoPlayer(controller),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              AspectRatio(
+                aspectRatio: controller.value.aspectRatio,
+                child: VideoPlayer(controller),
+              ),
 
-                // 재생/일시정지 버튼
-                Center(
+              // 재생/일시정지 버튼
+              Center(
+                child: IconButton(
+                  icon: Icon(
+                    controller.value.isPlaying
+                        ? Icons.pause_circle
+                        : Icons.play_circle,
+                    size: 40,
+                    color: Colors.white,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      if (controller.value.isPlaying) {
+                        controller.pause();
+                      } else {
+                        controller.play();
+                      }
+                    });
+                  },
+                ),
+              ),
+              // 출력 영상에만 전체화면 버튼 추가
+              if (!isInput)
+                Positioned(
+                  bottom: 10,
+                  right: 10,
                   child: IconButton(
-                    icon: Icon(
-                      controller.value.isPlaying
-                          ? Icons.pause_circle
-                          : Icons.play_circle,
-                      size: 40,
+                    icon: const Icon(
+                      Icons.fullscreen,
+                      size: 36,
                       color: Colors.white,
                     ),
                     onPressed: () {
-                      setState(() {
-                        if (controller.value.isPlaying) {
-                          controller.pause();
-                        } else {
-                          controller.play();
-                        }
-                      });
+                      _openFullScreen(controller);
                     },
                   ),
                 ),
-                // 출력 영상에만 전체화면 버튼 추가
-                if (!isInput)
-                  Positioned(
-                    bottom: 10,
-                    right: 10,
-                    child: IconButton(
-                      icon: const Icon(
-                        Icons.fullscreen,
-                        size: 36,
-                        color: Colors.white,
-                      ),
-                      onPressed: () {
-                        _openFullScreen(controller);
-                      },
-                    ),
-                  ),
-              ],
-            ),
+            ],
           ),
         ),
       ),
@@ -203,91 +240,113 @@ class _VideoTabState extends State<VideoTab> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          // 입력 비디오
-          _buildVideoPlayer(
-            placeholderText: "입력 영상 선택",
-            controller: _inputController,
-            isInput: true,
-            onTap: _pickVideo,
-          ),
+    return Stack(
+      children: [
+        // 스크롤 가능한 콘텐츠 영역
+        Positioned.fill(
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                const SizedBox(height: 15),
+                // 입력 비디오
+                _buildVideoPlayer(
+                  placeholderText: "video upload",
+                  controller: _inputController,
+                  isInput: true,
+                  onTap: _pickVideo,
+                ),
 
-          // 출력 비디오
-          _buildVideoPlayer(
-            placeholderText: "출력 영상",
-            controller: _outputController,
-            isInput: false,
-            onTap: null,
-          ),
+                // 출력 비디오
+                _buildVideoPlayer(
+                  placeholderText: "output video",
+                  controller: _outputController,
+                  isInput: false,
+                  onTap: null,
+                ),
 
-          const SizedBox(height: 20),
-
-          // 버튼 전환 로직
-          if (_outputVideo == null)
-            ElevatedButton(
-              onPressed: _convertVideo,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.cached_rounded),
-                  SizedBox(width: 8),
-                  Text(
-                    "video upscaling",
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-            )
-          else
-            ElevatedButton(
-              onPressed: _saveOutputVideoToGallery,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.download_rounded),
-                  SizedBox(width: 8),
-                  Text(
-                    "video download",
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
+                // 하단 여백 (버튼이 가리지 않도록)
+                const SizedBox(height: 100),
+              ],
             ),
-
-          const SizedBox(height: 16),
-
-          Text(
-            "inference time: $_inferenceTime",
-            style: const TextStyle(fontSize: 16),
           ),
+        ),
 
-          const SizedBox(height: 20),
-        ],
-      ),
+        // 하단 고정 컨트롤 (Inference Time + Button)
+        Positioned(
+          bottom: 20,
+          left: 0,
+          right: 16, // 오른쪽 여백
+          child: SizedBox(
+            height: 60,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Inference Time (가운데 정렬)
+                Text(
+                  "Inference time: $_inferenceTime",
+                  style: const TextStyle(fontSize: 16),
+                ),
+
+                // 버튼 (오른쪽 정렬)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: _outputVideo == null
+                      ? ElevatedButton(
+                          onPressed: _convertVideo,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.cached_rounded),
+                              SizedBox(width: 8),
+                              Text(
+                                "video upscaling",
+                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ElevatedButton(
+                          onPressed: _saveOutputVideoToGallery,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.download_rounded),
+                              SizedBox(width: 8),
+                              Text(
+                                "video download",
+                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
