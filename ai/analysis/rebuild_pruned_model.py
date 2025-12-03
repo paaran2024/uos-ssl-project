@@ -52,6 +52,7 @@ class PrunedLRSA(LRSA):
         ])
 
 class PrunedCATANet(CATANet):
+    """ 전체 CATANet 아키텍처의 프루닝된 버전 """
     def __init__(self, upscale: int, mlp_dims: list, head_counts: list, args):
         super(CATANet, self).__init__()
         
@@ -62,9 +63,20 @@ class PrunedCATANet(CATANet):
         self.qk_dim_orig = self.setting['qk_dim']
         self.heads_orig = self.setting['heads']
         self.upscale = upscale
-        self.n_iters = args.get('n_iters', [5]*8)
-        self.num_tokens = args.get('num_tokens', [16,32,64,128,16,32,64,128])
-        self.group_size = args.get('group_size', [256,128,64,32,256,128,64,32])
+        
+        # MODIFIED: Handle both int and list from config
+        def _expand_to_list(val, length):
+            if isinstance(val, list):
+                return val
+            return [val] * length
+        
+        n_iters_val = args.get('n_iters', [5]*self.block_num)
+        num_tokens_val = args.get('num_tokens', [16,32,64,128,16,32,64,128])
+        group_size_val = args.get('group_size', [256,128,64,32,256,128,64,32])
+
+        self.n_iters = _expand_to_list(n_iters_val, self.block_num)
+        self.num_tokens = _expand_to_list(num_tokens_val, self.block_num)
+        self.group_size = _expand_to_list(group_size_val, self.block_num)
 
         self.first_conv = nn.Conv2d(3, self.dim, 3, 1, 1)
 
@@ -80,7 +92,12 @@ class PrunedCATANet(CATANet):
                 raise ValueError(f"레이어 {i}는 0개의 헤드/뉴런을 가질 수 없습니다. 프루닝이 너무 많이 되었습니다.")
 
             current_qk_dim = current_heads * q_head_dim
-            tab_kwargs = {'n_iter': self.n_iters[i], 'num_tokens': self.num_tokens[i], 'group_size': self.group_size[i], 'ema_decay': 0.999}
+            tab_kwargs = {
+                'n_iter': self.n_iters[i], 
+                'num_tokens': self.num_tokens[i], 
+                'group_size': self.group_size[i], 
+                'ema_decay': args.get('ema_decay', 0.999)
+            }
             
             self.blocks.append(nn.ModuleList([
                 PrunedTAB(self.dim, current_qk_dim, current_mlp_dim, current_heads, **tab_kwargs),
@@ -107,6 +124,7 @@ class PrunedCATANet(CATANet):
 # =====================================================================================
 
 def transfer_weights(rebuilt_model, source_state_dict, masks):
+    """ 희소 모델의 가중치를 새로운 소형 모델로 이식합니다. """
     new_state_dict = rebuilt_model.state_dict()
     head_mask = masks['head_mask']
     neuron_mask = masks['neuron_mask']
@@ -141,7 +159,6 @@ def transfer_weights(rebuilt_model, source_state_dict, masks):
             kept_neurons = neuron_mask[layer_idx].nonzero().squeeze(-1)
             new_param.data.copy_(source_param.data[:, kept_neurons])
         elif 'mlp.fn.dwconv' in name:
-             # dwconv의 가중치는 그룹 컨볼루션이므로, 차원 변경에 맞춰 이식
             kept_neurons = neuron_mask[layer_idx].nonzero().squeeze(-1)
             if 'depthwise_conv.0.weight' in name or 'depthwise_conv.0.bias' in name:
                 new_param.data.copy_(source_param.data[kept_neurons])
@@ -160,9 +177,16 @@ def transfer_weights(rebuilt_model, source_state_dict, masks):
             elif 'proj.weight' in name:
                 new_w = torch.cat([source_param.data[:, h_idx * v_head_dim : (h_idx + 1) * v_head_dim] for h_idx in kept_heads], dim=1)
                 new_param.data.copy_(new_w)
-            elif 'irca' in name: # irca_attn은 헤드 프루닝의 영향을 받지만, to_k/v가 공유되므로 조금 다름
-                new_w = torch.cat([source_param.data[h_idx * q_head_dim : (h_idx + 1) * q_head_dim, :] for h_idx in kept_heads], dim=0)
-                new_param.data.copy_(new_w)
+            elif 'irca' in name:
+                # irca_attn.to_k와 to_v는 헤드 프루닝의 영향을 받음
+                if 'to_k.weight' in name:
+                     new_w = torch.cat([source_param.data[h_idx * q_head_dim : (h_idx + 1) * q_head_dim, :] for h_idx in kept_heads], dim=0)
+                     new_param.data.copy_(new_w)
+                elif 'to_v.weight' in name:
+                     new_w = torch.cat([source_param.data[h_idx * v_head_dim : (h_idx + 1) * v_head_dim, :] for h_idx in kept_heads], dim=0)
+                     new_param.data.copy_(new_w)
+                else: # bias
+                    new_param.data.copy_(source_param.data)
             else:
                 new_param.data.copy_(source_param.data)
         
@@ -186,7 +210,6 @@ def main():
 
     # --- 실행 위치 보정 ---
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-    # Argparse는 절대 경로를 받을 수 있으므로 CWD 변경은 불필요할 수 있으나, 일관성을 위해 유지
     
     # --- 1. 데이터 로드 ---
     print("프루닝 마스크와 소스 가중치를 로드합니다...")
