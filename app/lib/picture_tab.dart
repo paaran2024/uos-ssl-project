@@ -210,6 +210,14 @@ class _PictureTabState extends State<PictureTab> {
                   ),
                 ),
                 
+                const SizedBox(height: 30),
+                
+                // Inference Time (스크롤 가능한 영역에 포함)
+                Text(
+                  "Inference time: $_inferenceTime",
+                  style: const TextStyle(fontSize: 16),
+                ),
+
                 // 하단 여백 (버튼이 가리지 않도록)
                 const SizedBox(height: 100),
               ],
@@ -217,88 +225,68 @@ class _PictureTabState extends State<PictureTab> {
           ),
         ),
 
-        // 하단 고정 컨트롤 (Inference Time + Button)
+        // 하단 고정 버튼
         Positioned(
           bottom: 20,
-          left: 0,
-          right: 16, // 오른쪽 여백
-          child: SizedBox(
-            height: 60,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // Inference Time (가운데 정렬)
-                // if (_inferenceTime.isNotEmpty) // 제거: 항상 보이도록 하거나 빈 문자열일 때는 공간만 차지하게 할 수 있음
-                  Text(
-                    "Inference time: $_inferenceTime",
-                    style: const TextStyle(fontSize: 16),
+          right: 16, // 오른쪽 정렬
+          child: _outputBytes == null
+              ? ElevatedButton(
+                  onPressed: _convertImage,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
                   ),
-                
-                // 버튼 (오른쪽 정렬)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: _outputBytes == null
-                      ? ElevatedButton(
-                          onPressed: _convertImage,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.orange,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 24,
-                              vertical: 12,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.cached_rounded),
-                              SizedBox(width: 8),
-                              Text(
-                                "image upscaling",
-                                style: TextStyle(
-                                    fontSize: 16, fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                        )
-                      : ElevatedButton(
-                          onPressed: () async {
-                            bool ok = await MediaStoreSaver.saveImage(_outputBytes!);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(ok ? "갤러리에 저장됨!" : "저장 실패")),
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.orange,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 24,
-                              vertical: 12,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.download_rounded),
-                              SizedBox(width: 8),
-                              Text(
-                                "image download",
-                                style: TextStyle(
-                                    fontSize: 16, fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                        ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.cached_rounded),
+                      SizedBox(width: 8),
+                      Text(
+                        "image upscaling",
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                )
+              : ElevatedButton(
+                  onPressed: () async {
+                    bool ok = await MediaStoreSaver.saveImage(_outputBytes!);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(ok ? "갤러리에 저장됨!" : "저장 실패")),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.download_rounded),
+                      SizedBox(width: 8),
+                      Text(
+                        "image download",
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
-            ),
-          ),
         ),
       ],
     );
