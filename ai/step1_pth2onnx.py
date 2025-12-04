@@ -16,28 +16,17 @@ import models.catanet_arch as arch_module
 # [Monkey Patching] ONNX 변환을 위해 원본 모델의 기능을 수동 구현으로 교체
 # ==============================================================================
 
-# 0. Scaled Dot Product Attention 수동 구현 (ONNX 호환성 확보)
 def manual_attention(q, k, v):
-    # q, k, v: (B, Heads, N, Dim)
     dim = q.shape[-1]
     scale = dim ** -0.5
-    
-    # Attention Scores = (Q @ K^T) / sqrt(d)
-    # k.transpose(-2, -1) changes (..., N, D) to (..., D, N)
     attn_scores = torch.matmul(q, k.transpose(-2, -1)) * scale
-    
-    # Softmax
     attn_probs = F.softmax(attn_scores, dim=-1)
-    
-    # Output = probs @ V
     out = torch.matmul(attn_probs, v)
     return out
 
-# 1. einsum을 matmul로 대체한 similarity 함수
 def similarity_patched(x, means):
     return torch.matmul(x, means.transpose(0, 1))
 
-# 2. unfold 대체 + 수동 Attention 적용한 IASA 클래스
 class IASA_ONNX(nn.Module):
     def __init__(self, dim, qk_dim, heads, group_size):
         super().__init__()
@@ -61,11 +50,9 @@ class IASA_ONNX(nn.Module):
         ng = (N + gs - 1) // gs
         pad_n = ng * gs - N
 
-        # Query Preparation
         paded_q = torch.cat((q, torch.flip(q[:,N-pad_n:N, :], dims=[-2])), dim=-2)
         paded_q = rearrange(paded_q, "b (ng gs) (h d) -> b ng h gs d", ng=ng, h=self.heads)
         
-        # Key/Value Preparation (Unfold 대체)
         paded_k_raw = torch.cat((k, torch.flip(k[:,N-pad_n-gs:N, :], dims=[-2])), dim=-2)
         paded_v_raw = torch.cat((v, torch.flip(v[:,N-pad_n-gs:N, :], dims=[-2])), dim=-2)
         
@@ -80,10 +67,8 @@ class IASA_ONNX(nn.Module):
         paded_k = rearrange(k_windows, "b ng gs (h d) -> b ng h gs d", h=self.heads)
         paded_v = rearrange(v_windows, "b ng gs (h d) -> b ng h gs d", h=self.heads)
         
-        # 1. Intra-group self-attention (Manual)
         out1 = manual_attention(paded_q, paded_k, paded_v)
 
-        # 2. Inter-group cross-attention (Manual)
         k_global = k_global.reshape(1,1,*k_global.shape).expand(B,ng,-1,-1,-1)
         v_global = v_global.reshape(1,1,*v_global.shape).expand(B,ng,-1,-1,-1)
         out2 = manual_attention(paded_q, k_global, v_global)
@@ -95,7 +80,6 @@ class IASA_ONNX(nn.Module):
         out = self.proj(out)
         return out
 
-# 3. einsum 대체한 TAB 클래스
 class TAB_ONNX(nn.Module):
     def __init__(self, dim, qk_dim, mlp_dim, heads, n_iter=3,
                  num_tokens=8, group_size=128,
@@ -140,7 +124,6 @@ class TAB_ONNX(nn.Module):
         x = self.mlp(x, x_size=(h, w)) + x
         return rearrange(x, 'b (h w) c->b c h w',h=h)
 
-# 4. 수동 Attention 적용한 Attention 클래스 (LRSA용)
 class Attention_ONNX(nn.Module):
     def __init__(self, dim, heads, qk_dim):
         super().__init__()
@@ -156,35 +139,29 @@ class Attention_ONNX(nn.Module):
     def forward(self, x):
         q, k, v = self.to_q(x), self.to_k(x), self.to_v(x)
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h=self.heads), (q, k, v))
-        
-        # Manual Attention
         out = manual_attention(q, k, v)
-        
         out = rearrange(out, 'b h n d -> b n (h d)')
         return self.proj(out)
 
 def run():
-    # === 설정 ===
+    # === 설정 (x2로 변경) ===
     WEIGHTS_PATH = os.path.join(os.path.dirname(__file__), 'weights', 'catanet_finetuned_feature_kd.pth')
-    OUTPUT_ONNX_PATH = os.path.join(os.path.dirname(__file__), 'catanet_child_x4.onnx')
-    UPSCALE_FACTOR = 4
+    OUTPUT_ONNX_PATH = os.path.join(os.path.dirname(__file__), 'catanet_child_x2.onnx') # x2로 변경
+    UPSCALE_FACTOR = 2  # x2로 변경
     INPUT_SIZE = 64
-    # ===========
+    # =====================
 
-    print("--- [Step 1] PyTorch -> ONNX 변환 (Manual Attention Patching) ---")
+    print("--- [Step 1] PyTorch -> ONNX 변환 (x2, Manual Attention Patching) ---")
     
-    # 1. 모든 Attention 관련 모듈 Patching
     arch_module.similarity = similarity_patched
     arch_module.IASA = IASA_ONNX
     arch_module.TAB = TAB_ONNX
-    arch_module.Attention = Attention_ONNX # LRSA 내부에서 사용되는 Attention도 교체
+    arch_module.Attention = Attention_ONNX
 
-    # 2. 모델 생성
     device = torch.device('cpu')
     model = arch_module.CATANet(upscale=UPSCALE_FACTOR)
     model.to(device)
 
-    # 3. 가중치 로드
     if not os.path.exists(WEIGHTS_PATH):
         print(f"오류: 가중치 파일 없음 {WEIGHTS_PATH}")
         return
@@ -201,7 +178,6 @@ def run():
 
     model.eval()
 
-    # 4. ONNX Export (Opset 11로 복귀 - 수동 구현했으므로 가능)
     dummy_input = torch.randn(1, 3, INPUT_SIZE, INPUT_SIZE, device=device)
     
     print("ONNX 변환 중...")
@@ -210,7 +186,7 @@ def run():
         dummy_input,
         OUTPUT_ONNX_PATH,
         export_params=True,
-        opset_version=11, # Manual Attention 덕분에 11 버전에서도 작동합니다.
+        opset_version=11,
         do_constant_folding=True,
         input_names=['input'],
         output_names=['output']

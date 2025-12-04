@@ -3,33 +3,29 @@ import os
 
 def run():
     # ================= [설정 영역] =================
-    # Step 2에서 생성된 TensorFlow 폴더 경로
-    INPUT_TF_PATH = os.path.join(os.path.dirname(__file__), 'catanet_child_x4_tf')
+    # x2로 변경된 경로
+    INPUT_TF_PATH = os.path.join(os.path.dirname(__file__), 'catanet_child_x2_tf')
     
-    # 저장할 최종 TFLite 파일명
-    OUTPUT_TFLITE_PATH = os.path.join(os.path.dirname(__file__), 'catanet_child_x4.tflite')
+    # 최종 파일명도 x2로 변경
+    OUTPUT_TFLITE_PATH = os.path.join(os.path.dirname(__file__), 'catanet_child_x2.tflite')
     # ==============================================
 
-    print(f"--- [Step 3] TensorFlow -> TFLite 변환 시작 ---")
+    print(f"--- [Step 3] TensorFlow -> TFLite 변환 시작 (x2) ---")
 
     if not os.path.exists(INPUT_TF_PATH):
         print(f"오류: TensorFlow 모델 폴더가 없습니다: {INPUT_TF_PATH}")
         print("step2_onnx2tf.py를 먼저 실행해주세요.")
         return
 
-    # 1. Converter 설정 (SavedModel 불러오기)
+    # 1. Converter 설정
     converter = tf.lite.TFLiteConverter.from_saved_model(INPUT_TF_PATH)
 
     # 2. 호환성 옵션 설정
-    # 일부 고급 연산은 기본 TFLite에서 지원하지 않을 수 있어, TensorFlow 연산을 허용합니다.
     converter.target_spec.supported_ops = [
-        tf.lite.OpsSet.TFLITE_BUILTINS, # 기본 TFLite 연산
-        tf.lite.OpsSet.SELECT_TF_OPS    # Flex Delegate (TensorFlow 연산 허용)
+        tf.lite.OpsSet.TFLITE_BUILTINS,
+        tf.lite.OpsSet.SELECT_TF_OPS 
     ]
     
-    # (선택) 모델 최적화: 용량을 줄이려면 아래 주석을 해제하세요.
-    # converter.optimizations = [tf.lite.Optimize.DEFAULT]
-
     # 3. 변환 수행
     try:
         tflite_model = converter.convert()
