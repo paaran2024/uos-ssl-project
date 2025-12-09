@@ -3,21 +3,29 @@ import argparse
 import yaml
 import torch
 import os
+<<<<<<< Updated upstream
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from contextlib import redirect_stdout
 import io
+=======
+>>>>>>> Stashed changes
 
 # --- 커스텀 모듈 및 OPTIN 라이브러리 임포트 ---
 from scripts.load_catanet import get_catanet_teacher_model
 from prune.main_prune import pruneModel
+<<<<<<< Updated upstream
 from evals.gen_eval import evalModel, _apply_pruning_in_memory
+=======
+from evals.gen_eval import evalModel, _apply_pruning_in_memory # MODIFIED: Import the correct pruning function
+>>>>>>> Stashed changes
 from data.scripts.gen_dataset import generateDataset
 from utils.utility import calculateComplexity
 
 # 이 스크립트는 CATANet-L 모델에 대한 프루닝 전체 과정을 실행하는 메인 스크립트입니다.
+<<<<<<< Updated upstream
 # MODIFIED: 여러 mac_constraint 값에 대한 반복 테스트 및 결과 시각화 기능 추가
 # MODIFIED: 매 실행 전 .pkl 랭킹 캐시 파일 자동 삭제 기능 추가
 
@@ -71,6 +79,47 @@ def run_single(args):
     """
     # --- 1. 교사 모델(CATANet-L) 로드 ---
     # 매번 새로운 모델을 로드하여 이전 프루닝의 영향을 받지 않도록 합니다.
+=======
+
+def apply_and_save_pruned_model(model, pruning_params, save_path):
+    """
+    MODIFIED: Applies all pruning masks (head and neuron) and saves the resulting pruned state_dict.
+    This now uses the same logic as the evaluation step to ensure consistency.
+    """
+    print(f"--- 프루닝된 모델 가중치 저장 시작 ---")
+    print(f"저장 경로: {save_path}")
+
+    # Use the tested function from eval to get the correctly pruned state_dict
+    pruned_state_dict = _apply_pruning_in_memory(model, pruning_params)
+
+    # Save the pruned state_dict.
+    # It's good practice to save it in a dictionary, similar to the original model checkpoints.
+    # The finetune script will look for the 'params' key.
+    torch.save({'params': pruned_state_dict}, save_path)
+    
+    print(f"--- 프루닝된 모델 가중치 저장 완료 ---")
+
+
+def main():
+    # --- 1. 설정 파일 로드 ---
+    parser = argparse.ArgumentParser(description="CATANet-L 모델을 위한 커스텀 프루닝 실행 스크립트")
+    parser.add_argument("--config", required=True, help="프루닝 설정을 담은 YAML 파일 경로")
+    args = parser.parse_args()
+
+    with open(args.config, "r", encoding="utf-8") as yaml_file:
+        yaml_config = yaml.safe_load(yaml_file)
+    
+    # YAML 파일 내용을 args 객체에 병합합니다.
+    for key, value in yaml_config.items():
+        setattr(args, key, value)
+
+    print("--- 설정 파일 로드 완료 ---")
+    print(f"모델: {args.model_name}, 데이터셋: {args.dataset}")
+    print(f"프루닝 제약 조건 (MAC): {args.mac_constraint}")
+    print("--------------------------\n")
+
+    # --- 2. 교사 모델(CATANet-L) 로드 ---
+>>>>>>> Stashed changes
     teacher_model = get_catanet_teacher_model(weights_path=args.weights_path, upscale=args.scale)
     
     model_config = {
@@ -83,6 +132,7 @@ def run_single(args):
     
     print(f"--- 교사 모델 '{args.model_name}' 로드 완료 ---")
     num_params = sum(p.numel() for p in teacher_model.parameters())
+<<<<<<< Updated upstream
     print(f"모델 파라미터 수: {num_params / 1e6:.2f}M\n")
 
     # --- 2. 데이터셋 로드 ---
@@ -99,10 +149,36 @@ def run_single(args):
     # 가장 마지막 mac_constraint에 대한 결과만 저장하거나, 필요에 따라 경로를 동적으로 변경할 수 있습니다.
     pruned_model_save_path = os.path.join('weights', f'catanet_pruned_mac_{args.mac_constraint:.2f}.pth')
     pruning_masks_save_path = os.path.join('weights', f'catanet_pruning_masks_mac_{args.mac_constraint:.2f}.pth')
+=======
+    print(f"모델 파라미터 수: {num_params / 1e6:.2f}M")
+    print("-----------------------------------\n")
+
+    # --- 3. 데이터셋 로드 ---
+    train_dataset, val_dataset, args = generateDataset(args)
+    print("--- 데이터셋 로드 완료 ---")
+
+    # --- 4. 프루닝 실행 ---
+    prunedProps = {
+        "num_att_head": model_config["num_attention_heads"],
+        "inter_size": model_config["intermediate_size"],
+        "hidden_size": model_config["hidden_size"],
+        "num_layers": model_config["num_hidden_layers"],
+    }
+    
+    print("--- 모델 프루닝 시작 ---")
+    pruningParams, baselineComplexity, prunedComplexity = pruneModel(args, teacher_model, train_dataset, model_config)
+    print("--- 모델 프루닝 완료---")
+
+    # --- 5. 프루닝된 모델 및 마스크 저장 ---
+    # MODIFIED: Save the pruning parameters (masks) as well
+    pruned_model_save_path = os.path.join('weights', 'catanet_pruned.pth')
+    pruning_masks_save_path = os.path.join('weights', 'catanet_pruning_masks.pth')
+>>>>>>> Stashed changes
     
     print(f"프루닝 마스크를 '{pruning_masks_save_path}'에 저장합니다...")
     torch.save(pruningParams, pruning_masks_save_path)
     print("마스크 저장 완료.")
+<<<<<<< Updated upstream
     apply_and_save_pruned_model(teacher_model, pruningParams, pruned_model_save_path)
 
     # --- 5. 결과 평가 ---
@@ -217,6 +293,29 @@ def main():
         visualize_tradeoff_results(csv_path=output_csv)
     else:
         print("--- 단일 실행 완료 ---")
+=======
+
+    apply_and_save_pruned_model(teacher_model, pruningParams, pruned_model_save_path)
+    print("\n")
+
+    # --- 6. 결과 평가 ---
+    print("--- 프루닝된 모델 성능 평가 시작 ---")
+    if isinstance(baselineComplexity, dict): baselineComplexity = baselineComplexity.get('MAC', 1)
+    if isinstance(prunedComplexity, dict): prunedComplexity = prunedComplexity.get('MAC', 1)
+    flop_reduction_amount = 100 - (prunedComplexity / baselineComplexity * 100.0)
+    print(f"FLOPs 감소율: {flop_reduction_amount:.2f}%")
+    
+    baselinePerformance, finalPerformance = evalModel(args, teacher_model, train_dataset, val_dataset, pruningParams, prunedProps)
+    print("--- 성능 평가 완료---")
+
+    # --- 7. 최종 결과 출력 ---
+    print("--- 최종 결과 ---")
+    print(f"원본 모델 성능: {baselinePerformance}")
+    print(f"프루닝된 모델 성능: {finalPerformance}")
+    print(f"FLOPs 감소율: {flop_reduction_amount:.2f}%")
+    print(f"FLOPs 비율: {prunedComplexity / baselineComplexity * 100.0:.2f}%")
+    print("------------------")
+>>>>>>> Stashed changes
 
 if __name__ == "__main__":
     main()
