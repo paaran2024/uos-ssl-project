@@ -1,0 +1,118 @@
+# ===========================================
+# Python Build/Cache
+# ===========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.pytest_cache/
+.tox/
+htmlcov/
+coverage/
+.coverage
+.coverage.*
+nosetests.xml
+coverage.xml
+
+# ===========================================
+# Python Virtual Environment
+# ===========================================
+.env
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.python-version
+
+# ===========================================
+# IDE/Editor
+# ===========================================
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.spyderproject
+.spyproject
+.ropeproject
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# ===========================================
+# Flutter/Dart
+# ===========================================
+.dart_tool/
+.pub-cache/
+.pub/
+app/build/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+**/doc/api/
+*.iml
+
+# ===========================================
+# Large Model Weights
+# ===========================================
+ai/weights/*.pth
+ai/_references/*/pretrained_models/
+ai/_references/**/checkpoints/
+
+# ===========================================
+# Large Datasets (Training)
+# ===========================================
+ai/datasets/DIV2K/
+ai/datasets/BSD100/
+ai/datasets/Urban100/
+ai/datasets/Manga109/
+
+# ===========================================
+# Reference Implementations (External Code)
+# ===========================================
+ai/_references/
+
+# ===========================================
+# Analysis Outputs
+# ===========================================
+ai/storage/
+ai/tradeoff_results.csv
+ai/tradeoff_visualization.png
+ai/analysis/outputs/
+
+# ===========================================
+# OS Generated
+# ===========================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# ===========================================
+# Logs
+# ===========================================
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ===========================================
+# Temporary Files
+# ===========================================
+tmp/
+temp/
+*.tmp
+*.temp
