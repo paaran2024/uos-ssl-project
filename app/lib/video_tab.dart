@@ -17,6 +17,8 @@ class _VideoTabState extends State<VideoTab> {
   XFile? _inputVideo;
   XFile? _outputVideo;
   String _inferenceTime = "";
+  String? _inputResolution;
+  String? _outputResolution;
 
   VideoPlayerController? _inputController;
   VideoPlayerController? _outputController;
@@ -31,12 +33,17 @@ class _VideoTabState extends State<VideoTab> {
         _inputVideo = picked;
         _outputVideo = null;
         _inferenceTime = "";
+        _inputResolution = null;
+        _outputResolution = null;
       });
 
       _inputController?.dispose();
       _inputController = VideoPlayerController.file(File(picked.path))
         ..initialize().then((_) {
-          setState(() {});
+          setState(() {
+            final size = _inputController!.value.size;
+            _inputResolution = "${size.width.toInt()} x ${size.height.toInt()}";
+          });
         });
     }
   }
@@ -58,7 +65,12 @@ class _VideoTabState extends State<VideoTab> {
 
     _outputController?.dispose();
     _outputController = VideoPlayerController.file(File(_outputVideo!.path))
-      ..initialize().then((_) => setState(() {}));
+      ..initialize().then((_) {
+        setState(() {
+          final size = _outputController!.value.size;
+          _outputResolution = "${size.width.toInt()} x ${size.height.toInt()}";
+        });
+      });
 
     setState(() {});
   }
@@ -108,6 +120,7 @@ class _VideoTabState extends State<VideoTab> {
     required VideoPlayerController? controller,
     required bool isInput,
     required VoidCallback? onTap,
+    String? resolutionText,
   }) {
     if (controller == null) {
       return GestureDetector(
@@ -225,6 +238,26 @@ class _VideoTabState extends State<VideoTab> {
                     },
                   ),
                 ),
+              if (resolutionText != null)
+                Positioned(
+                  top: 12,
+                  left: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      resolutionText,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -246,6 +279,7 @@ class _VideoTabState extends State<VideoTab> {
                   controller: _inputController,
                   isInput: true,
                   onTap: _pickVideo,
+                  resolutionText: _inputResolution,
                 ),
 
                 _buildVideoPlayer(
@@ -253,6 +287,7 @@ class _VideoTabState extends State<VideoTab> {
                   controller: _outputController,
                   isInput: false,
                   onTap: null,
+                  resolutionText: _outputResolution,
                 ),
                 
                 const SizedBox(height: 30),
