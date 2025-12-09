@@ -1,14 +1,19 @@
 import argparse
+import os
+import csv
+
+# matplotlib 백엔드 설정 (import 전에 해야 함)
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
 import torch
 import torch.optim as optim
 import torch.nn.functional as F # FaKD 구현을 위해 추가
 from torch.utils.data import DataLoader
 import yaml
 from tqdm import tqdm
-import os
-import csv
 import pandas as pd
-import matplotlib.pyplot as plt
 
 # --- 커스텀 모듈 임포트 ---
 from scripts.load_catanet import get_catanet_teacher_model
