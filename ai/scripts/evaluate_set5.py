@@ -138,16 +138,18 @@ class SET5Evaluator:
         ('womanx2.png', 'woman.png'),
     ]
 
-    def __init__(self, data_dir: str = 'datasets/Set5', scale: int = 2):
+    def __init__(self, data_dir: str = 'datasets/benchmark', dataset_name: str = 'Set5', scale: int = 2):
         """
         Args:
-            data_dir: SET5 데이터셋 경로
+            data_dir: 벤치마크 데이터셋 루트 경로
+            dataset_name: 데이터셋 이름 (Set5, Set14 등)
             scale: 업스케일 배율
         """
         self.data_dir = Path(data_dir)
+        self.dataset_name = dataset_name
         self.scale = scale
-        self.hr_dir = self.data_dir / 'HR'
-        self.lr_dir = self.data_dir / f'LR_bicubic/X{scale}'
+        self.hr_dir = self.data_dir / 'HR' / dataset_name
+        self.lr_dir = self.data_dir / 'LR' / 'LRBI' / dataset_name / f'x{scale}'
 
     @staticmethod
     def load_image(path: Path) -> torch.Tensor:
@@ -272,8 +274,10 @@ Examples:
                         help='변환된 .ptl 파일')
     parser.add_argument('--upscale', type=int, default=2,
                         help='업스케일 배율')
-    parser.add_argument('--data_dir', type=str, default='datasets/Set5',
-                        help='SET5 데이터셋 경로')
+    parser.add_argument('--data_dir', type=str, default='datasets/benchmark',
+                        help='벤치마크 데이터셋 루트 경로')
+    parser.add_argument('--dataset', type=str, default='Set5',
+                        help='데이터셋 이름 (Set5, Set14 등)')
 
     args = parser.parse_args()
 
@@ -282,10 +286,10 @@ Examples:
         args.weights = 'weights/CATANet-L_x2.pth'
 
     print('=' * 50)
-    print(f'SET5 Super Resolution 평가 (x{args.upscale})')
+    print(f'{args.dataset} Super Resolution 평가 (x{args.upscale})')
     print('=' * 50)
 
-    evaluator = SET5Evaluator(args.data_dir, args.upscale)
+    evaluator = SET5Evaluator(args.data_dir, args.dataset, args.upscale)
     results = []
 
     # 원본 모델 평가

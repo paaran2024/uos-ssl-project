@@ -112,7 +112,7 @@ def generate_individual_plots(log_path, distillation_type):
 
 
 def generate_comparison_plots():
-    """3가지 KD 방법 비교 그래프 생성 (1000 에폭 완료 시에만)"""
+    """3가지 KD 방법 비교 그래프 생성 (500 에폭 완료 시에만)"""
     kd_types = ['output', 'feature', 'fakd']
     colors = {'output': 'blue', 'feature': 'green', 'fakd': 'red'}
 
@@ -124,20 +124,20 @@ def generate_comparison_plots():
         log_path = get_log_path(kd_type)
         if os.path.exists(log_path):
             df = pd.read_csv(log_path)
-            if len(df) >= 1000:
+            if len(df) >= 500:
                 all_logs[kd_type] = df
             else:
-                print(f"⏳ {kd_type} KD: {len(df)}/1000 에폭 (미완료)")
+                print(f"⏳ {kd_type} KD: {len(df)}/500 에폭 (미완료)")
                 all_complete = False
         else:
             print(f"⚠️ {kd_type} KD 로그 파일 없음")
             all_complete = False
 
     if not all_complete:
-        print("❌ 3가지 KD 방법 모두 1000 에폭 완료 후 비교 그래프가 생성됩니다.")
+        print("❌ 3가지 KD 방법 모두 500 에폭 완료 후 비교 그래프가 생성됩니다.")
         return False
 
-    print("✅ 모든 KD 방법 1000 에폭 완료! 비교 그래프 생성 중...")
+    print("✅ 모든 KD 방법 500 에폭 완료! 비교 그래프 생성 중...")
 
     # PSNR 비교 그래프
     fig, ax = plt.subplots(figsize=(12, 7))
@@ -257,7 +257,21 @@ def main():
     train_opt, val_opt = config['datasets']['train'], config['datasets']['val']
     train_opt['scale'], val_opt['scale'] = args.scale, args.scale
     train_opt['phase'], val_opt['phase'] = 'train', 'val'
-    
+
+    # 경로 검증 (디버깅용)
+    print(f"📁 Val GT 경로: {val_opt['dataroot_gt']}")
+    print(f"📁 Val LQ 경로: {val_opt['dataroot_lq']}")
+    if os.path.exists(val_opt['dataroot_gt']):
+        gt_files = os.listdir(val_opt['dataroot_gt'])
+        print(f"   GT 파일: {gt_files[:5]}..." if len(gt_files) > 5 else f"   GT 파일: {gt_files}")
+    else:
+        print(f"   ❌ GT 경로가 존재하지 않습니다!")
+    if os.path.exists(val_opt['dataroot_lq']):
+        lq_files = os.listdir(val_opt['dataroot_lq'])
+        print(f"   LQ 파일: {lq_files[:5]}..." if len(lq_files) > 5 else f"   LQ 파일: {lq_files}")
+    else:
+        print(f"   ❌ LQ 경로가 존재하지 않습니다!")
+
     train_set = build_dataset(train_opt)
     val_set = build_dataset(val_opt)
 
@@ -402,14 +416,14 @@ def main():
 
     # --- 7. 그래프 생성 ---
     current_total_epochs = len(log_data)
-    print(f"\n📈 현재 총 에폭: {current_total_epochs}/1000")
+    print(f"\n📈 현재 총 에폭: {current_total_epochs}/500")
 
     # 개별 그래프는 항상 생성
     generate_individual_plots(log_path, args.distillation_type)
 
-    # 1000 에폭 달성 시 비교 그래프 생성 시도
-    if current_total_epochs >= 1000:
-        print("🎉 1000 에폭 달성! 비교 그래프 생성을 시도합니다...")
+    # 500 에폭 달성 시 비교 그래프 생성 시도
+    if current_total_epochs >= 500:
+        print("🎉 500 에폭 달성! 비교 그래프 생성을 시도합니다...")
         generate_comparison_plots()
 
 
