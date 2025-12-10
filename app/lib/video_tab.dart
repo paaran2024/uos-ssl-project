@@ -1,10 +1,13 @@
 import 'dart:io';
-import 'dart:async';
 import 'dart:typed_data';
-import 'package:contact/media_store_saver.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
+
+import 'constants.dart';
+import 'widgets/widgets.dart';
+import 'services/services.dart';
+import 'media_store_saver.dart';
 
 class VideoTab extends StatefulWidget {
   const VideoTab({super.key});
@@ -23,80 +26,6 @@ class _VideoTabState extends State<VideoTab> {
   VideoPlayerController? _inputController;
   VideoPlayerController? _outputController;
 
-  // 비디오 선택
-  Future<void> _pickVideo() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickVideo(source: ImageSource.gallery);
-
-    if (picked != null) {
-      setState(() {
-        _inputVideo = picked;
-        _outputVideo = null;
-        _inferenceTime = "";
-        _inputResolution = null;
-        _outputResolution = null;
-      });
-
-      _inputController?.dispose();
-      _inputController = VideoPlayerController.file(File(picked.path))
-        ..initialize().then((_) {
-          setState(() {
-            final size = _inputController!.value.size;
-            _inputResolution = "${size.width.toInt()} x ${size.height.toInt()}";
-          });
-        });
-    }
-  }
-
-  // 변환
-  Future<void> _convertVideo() async {
-    if (_inputVideo == null) return;
-
-    final stopwatch = Stopwatch()..start();
-
-    // AI 모델 처리 (예시)
-    await Future.delayed(const Duration(milliseconds: 300));
-
-    // 변환된 비디오 파일은 입력 비디오와 동일하다고 가정
-    _outputVideo = _inputVideo;
-
-    stopwatch.stop();
-    _inferenceTime = "${stopwatch.elapsedMilliseconds} ms";
-
-    _outputController?.dispose();
-    _outputController = VideoPlayerController.file(File(_outputVideo!.path))
-      ..initialize().then((_) {
-        setState(() {
-          final size = _outputController!.value.size;
-          _outputResolution = "${size.width.toInt()} x ${size.height.toInt()}";
-        });
-      });
-
-    setState(() {});
-  }
-
-  // 모바일 갤러리 저장
-  Future<void> _saveOutputVideoToGallery() async {
-    if (_outputVideo == null) return;
-
-    try {
-      final Uint8List bytes = await _outputVideo!.readAsBytes();
-
-      bool ok = await MediaStoreSaver.saveVideo(bytes);
-
-      if (!context.mounted) return; // 오류 해결됨
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(ok ? "갤러리에 저장됨" : "저장 실패")));
-    } catch (e) {
-      print("비디오 저장 중 오류 발생: $e");
-      if (!context.mounted) return; // 오류 해결됨
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("비디오 저장 실패")));
-    }
-  }
-
   @override
   void dispose() {
     _inputController?.dispose();
@@ -104,163 +33,71 @@ class _VideoTabState extends State<VideoTab> {
     super.dispose();
   }
 
-  // 전체화면 페이지
+  Future<void> _pickVideo() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickVideo(source: ImageSource.gallery);
+
+    if (picked == null) return;
+
+    setState(() {
+      _inputVideo = picked;
+      _outputVideo = null;
+      _inferenceTime = "";
+      _inputResolution = null;
+      _outputResolution = null;
+    });
+
+    _inputController?.dispose();
+    _inputController = VideoPlayerController.file(File(picked.path))
+      ..initialize().then((_) {
+        if (mounted) {
+          setState(() {
+            final size = _inputController!.value.size;
+            _inputResolution = "${size.width.toInt()} x ${size.height.toInt()}";
+          });
+        }
+      });
+  }
+
+  Future<void> _convertVideo() async {
+    if (_inputVideo == null) return;
+
+    final result = await VideoConverter.convert(_inputVideo!);
+
+    setState(() {
+      _outputVideo = result.outputVideo;
+      _inferenceTime = "${result.inferenceTimeMs} ms";
+    });
+
+    _outputController?.dispose();
+    _outputController = VideoPlayerController.file(File(_outputVideo!.path))
+      ..initialize().then((_) {
+        if (mounted) {
+          setState(() {
+            final size = _outputController!.value.size;
+            _outputResolution = "${size.width.toInt()} x ${size.height.toInt()}";
+          });
+        }
+      });
+  }
+
+  Future<void> _saveVideo() async {
+    if (_outputVideo == null) return;
+
+    final Uint8List bytes = await _outputVideo!.readAsBytes();
+    final ok = await MediaStoreSaver.saveVideo(bytes);
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(ok ? "갤러리에 저장됨" : "저장 실패")),
+    );
+  }
+
   void _openFullScreen(VideoPlayerController controller) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => FullScreenVideoPlayer(controller: controller),
-      ),
-    );
-  }
-
-  // 비디오 플레이어 위젯 생성
-  Widget _buildVideoPlayer({
-    required String placeholderText,
-    required VideoPlayerController? controller,
-    required bool isInput,
-    required VoidCallback? onTap,
-    String? resolutionText,
-  }) {
-    if (controller == null) {
-      return GestureDetector(
-        onTap: isInput ? onTap : null,
-        child: Container(
-          height: 300,
-          width: double.infinity,
-          margin: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade300,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: isInput
-              ? Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.grey,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.file_upload_outlined,
-                          color: Colors.white,
-                          size: 24,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          placeholderText,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              : const SizedBox.shrink(),
-        ),
-      );
-    }
-
-    if (!controller.value.isInitialized) {
-      return Container(
-        height: 300,
-        width: double.infinity,
-        margin: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade300,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: const Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 300,
-        width: double.infinity,
-        margin: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade300,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              AspectRatio(
-                aspectRatio: controller.value.aspectRatio,
-                child: VideoPlayer(controller),
-              ),
-
-              Center(
-                child: IconButton(
-                  icon: Icon(
-                    controller.value.isPlaying
-                        ? Icons.pause_circle
-                        : Icons.play_circle,
-                    size: 40,
-                    color: Colors.white,
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      if (controller.value.isPlaying) {
-                        controller.pause();
-                      } else {
-                        controller.play();
-                      }
-                    });
-                  },
-                ),
-              ),
-              if (!isInput)
-                Positioned(
-                  bottom: 10,
-                  right: 10,
-                  child: IconButton(
-                    icon: const Icon(
-                      Icons.fullscreen,
-                      size: 36,
-                      color: Colors.white,
-                    ),
-                    onPressed: () {
-                      _openFullScreen(controller);
-                    },
-                  ),
-                ),
-              if (resolutionText != null)
-                Positioned(
-                  top: 12,
-                  left: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      resolutionText,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -274,298 +111,133 @@ class _VideoTabState extends State<VideoTab> {
             child: Column(
               children: [
                 const SizedBox(height: 15),
-                _buildVideoPlayer(
-                  placeholderText: "video upload",
-                  controller: _inputController,
-                  isInput: true,
-                  onTap: _pickVideo,
-                  resolutionText: _inputResolution,
-                ),
-
-                _buildVideoPlayer(
-                  placeholderText: "output video",
-                  controller: _outputController,
-                  isInput: false,
-                  onTap: null,
-                  resolutionText: _outputResolution,
-                ),
-                
+                _buildInputVideoContainer(),
+                _buildOutputVideoContainer(),
                 const SizedBox(height: 30),
-
-                // Inference Time (스크롤 영역 안으로 이동)
-                Text(
-                  "Inference time: $_inferenceTime",
-                  style: const TextStyle(fontSize: 16),
-                ),
-
+                _buildInferenceTime(),
                 const SizedBox(height: 100),
               ],
             ),
           ),
         ),
-
-        // 하단 고정 버튼 (Inference Time 제외)
-        Positioned(
-          bottom: 20,
-          right: 16,
-          child: _outputVideo == null
-              ? ElevatedButton(
-                  onPressed: _convertVideo,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.cached_rounded),
-                      SizedBox(width: 8),
-                      Text(
-                        "video upscaling",
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                )
-              : ElevatedButton(
-                  onPressed: _saveOutputVideoToGallery,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.download_rounded),
-                      SizedBox(width: 8),
-                      Text(
-                        "video download",
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                ),
-        ),
+        BottomActionButton(child: _buildActionButton()),
       ],
     );
   }
-}
 
-// 전체화면 플레이어 페이지
-class FullScreenVideoPlayer extends StatefulWidget {
-  final VideoPlayerController controller;
-
-  const FullScreenVideoPlayer({super.key, required this.controller});
-
-  @override
-  State<FullScreenVideoPlayer> createState() => _FullScreenVideoPlayerState();
-}
-
-class _FullScreenVideoPlayerState extends State<FullScreenVideoPlayer>
-    with SingleTickerProviderStateMixin {
-  bool _showControls = false;
-  Timer? _hideTimer;
-
-  late AnimationController _fadeController;
-  late Animation<double> _fadeAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-
-    widget.controller.play();
-
-    _fadeController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
+  Widget _buildInputVideoContainer() {
+    return _buildVideoContainer(
+      controller: _inputController,
+      resolution: _inputResolution,
+      placeholderText: "video upload",
+      isInput: true,
+      onTap: _pickVideo,
     );
-
-    _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(_fadeController);
-
-    _startHideTimer();
   }
 
-  @override
-  void dispose() {
-    _hideTimer?.cancel();
-    _fadeController.dispose();
-    super.dispose();
+  Widget _buildOutputVideoContainer() {
+    return _buildVideoContainer(
+      controller: _outputController,
+      resolution: _outputResolution,
+      placeholderText: "output video",
+      isInput: false,
+      onTap: null,
+    );
   }
 
-  void _startHideTimer() {
-    _hideTimer?.cancel();
-    _hideTimer = Timer(const Duration(seconds: 3), () {
-      setState(() {
-        _showControls = false;
-      });
-      _fadeController.reverse();
-    });
-  }
-
-  void _toggleControls() {
-    setState(() => _showControls = !_showControls);
-
-    if (_showControls) {
-      _fadeController.forward();
-      _startHideTimer();
-    } else {
-      _fadeController.reverse();
+  Widget _buildVideoContainer({
+    required VideoPlayerController? controller,
+    required String? resolution,
+    required String placeholderText,
+    required bool isInput,
+    required VoidCallback? onTap,
+  }) {
+    // 컨트롤러 없음: 플레이스홀더 또는 빈 컨테이너
+    if (controller == null) {
+      return MediaContainer(
+        resolution: resolution,
+        onTap: isInput ? onTap : null,
+        child: isInput
+            ? UploadPlaceholder(text: placeholderText)
+            : const SizedBox.shrink(),
+      );
     }
+
+    // 초기화 중: 로딩 표시
+    if (!controller.value.isInitialized) {
+      return MediaContainer(
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // 초기화 완료: 비디오 플레이어 표시
+    return MediaContainer(
+      resolution: resolution,
+      onTap: onTap,
+      child: _buildVideoPlayer(controller, isInput),
+    );
   }
 
-  void _seekRelative(int seconds) {
-    final current = widget.controller.value.position;
-    final duration = widget.controller.value.duration;
-
-    Duration target = current + Duration(seconds: seconds);
-
-    if (target < Duration.zero) target = Duration.zero;
-    if (target > duration) target = duration;
-
-    widget.controller.seekTo(target);
-  }
-
-  Widget _buildSeekBar() {
-    final pos = widget.controller.value.position;
-    final dur = widget.controller.value.duration;
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
+  Widget _buildVideoPlayer(VideoPlayerController controller, bool isInput) {
+    return Stack(
+      alignment: Alignment.center,
       children: [
-        Slider(
-          min: 0,
-          max: dur.inMilliseconds.toDouble(),
-          value: pos.inMilliseconds.clamp(0, dur.inMilliseconds).toDouble(),
-          onChangeStart: (_) => _hideTimer?.cancel(),
-          onChanged: (value) {
-            widget.controller.seekTo(Duration(milliseconds: value.toInt()));
-            setState(() {});
-          },
-          onChangeEnd: (_) => _startHideTimer(),
-          activeColor: Colors.white,
-          inactiveColor: Colors.white70,
+        AspectRatio(
+          aspectRatio: controller.value.aspectRatio,
+          child: VideoPlayer(controller),
         ),
+        _buildPlayPauseButton(controller),
+        if (!isInput) _buildFullScreenButton(controller),
       ],
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: _toggleControls,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Center(
-              child: AspectRatio(
-                aspectRatio: widget.controller.value.aspectRatio,
-                child: VideoPlayer(widget.controller),
-              ),
-            ),
-
-            FadeTransition(
-              opacity: _fadeAnimation,
-              child: _showControls
-                  ? Stack(
-                      children: [
-                        Positioned(
-                          top: 40,
-                          left: 20,
-                          child: IconButton(
-                            icon: const Icon(
-                              Icons.arrow_back,
-                              color: Colors.white,
-                              size: 32,
-                            ),
-                            onPressed: () => Navigator.pop(context),
-                          ),
-                        ),
-
-                        Center(
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.replay_10,
-                                  size: 50,
-                                  color: Colors.white,
-                                ),
-                                onPressed: () {
-                                  _seekRelative(-10);
-                                  _startHideTimer();
-                                },
-                              ),
-
-                              const SizedBox(width: 40),
-
-                              IconButton(
-                                icon: Icon(
-                                  widget.controller.value.isPlaying
-                                      ? Icons.pause_circle
-                                      : Icons.play_circle,
-                                  size: 70,
-                                  color: Colors.white,
-                                ),
-                                onPressed: () {
-                                  setState(() {
-                                    if (widget.controller.value.isPlaying) {
-                                      widget.controller.pause();
-                                    } else {
-                                      widget.controller.play();
-                                    }
-                                  });
-                                  _startHideTimer();
-                                },
-                              ),
-
-                              const SizedBox(width: 40),
-
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.forward_10,
-                                  size: 50,
-                                  color: Colors.white,
-                                ),
-                                onPressed: () {
-                                  _seekRelative(10);
-                                  _startHideTimer();
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        Positioned(
-                          bottom: 20,
-                          left: 0,
-                          right: 0,
-                          child: _buildSeekBar(),
-                        ),
-                      ],
-                    )
-                  : const SizedBox.shrink(),
-            ),
-          ],
-        ),
+  Widget _buildPlayPauseButton(VideoPlayerController controller) {
+    return IconButton(
+      icon: Icon(
+        controller.value.isPlaying ? Icons.pause_circle : Icons.play_circle,
+        size: 40,
+        color: Colors.white,
       ),
+      onPressed: () {
+        setState(() {
+          controller.value.isPlaying ? controller.pause() : controller.play();
+        });
+      },
+    );
+  }
+
+  Widget _buildFullScreenButton(VideoPlayerController controller) {
+    return Positioned(
+      bottom: 10,
+      right: 10,
+      child: IconButton(
+        icon: const Icon(Icons.fullscreen, size: 36, color: Colors.white),
+        onPressed: () => _openFullScreen(controller),
+      ),
+    );
+  }
+
+  Widget _buildInferenceTime() {
+    return Text(
+      "Inference time: $_inferenceTime",
+      style: AppConstants.inferenceTimeTextStyle,
+    );
+  }
+
+  Widget _buildActionButton() {
+    if (_outputVideo == null) {
+      return ActionButton(
+        text: "video upscaling",
+        icon: Icons.cached_rounded,
+        onPressed: _convertVideo,
+      );
+    }
+
+    return ActionButton(
+      text: "video download",
+      icon: Icons.download_rounded,
+      onPressed: _saveVideo,
     );
   }
 }
