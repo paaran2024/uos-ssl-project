@@ -42,8 +42,8 @@ datasets:
   val: # 평가 데이터셋 이름 (gen_dataset.py는 'val' 키를 찾습니다)
     name: Set5
     type: PairedImageDataset
-    dataroot_gt: datasets/Set5/HR
-    dataroot_lq: datasets/Set5/LR_bicubic/X2 # MODIFIED for x2
+    dataroot_gt: datasets/benchmark/Set5/HR
+    dataroot_lq: datasets/benchmark/Set5/LR_bicubic/X2 # MODIFIED for x2
     filename_tmpl: "{}x2" # MODIFIED for x2
     io_backend:
       type: disk

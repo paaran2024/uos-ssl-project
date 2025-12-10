@@ -1,5 +1,6 @@
 import argparse
 import os
+os.environ['MPLBACKEND'] = 'Agg'
 import csv
 
 # matplotlib 백엔드 설정 (import 전에 해야 함)
@@ -269,10 +270,21 @@ def main():
     teacher_model = get_catanet_teacher_model(weights_path=args.teacher_weights, upscale=args.scale).to(device)
     teacher_model.eval()
 
-    print("학생 모델 로딩 (가지치기된 가중치)...")
+    print("학생 모델 로딩...")
     student_model = get_catanet_teacher_model(weights_path=None, upscale=args.scale).to(device)
-    pruned_state = torch.load(args.pruned_weights, map_location=device)['params']
-    student_model.load_state_dict(pruned_state, strict=False)
+
+    # 이어서 학습: 기존 finetuned 가중치가 있으면 로드, 없으면 pruned 가중치 로드
+    if start_epoch > 1 and os.path.exists(args.save_path):
+        print(f"📂 이어서 학습: {args.save_path} 로드")
+        saved_state = torch.load(args.save_path, map_location=device)
+        if 'params' in saved_state:
+            student_model.load_state_dict(saved_state['params'], strict=False)
+        else:
+            student_model.load_state_dict(saved_state, strict=False)
+    else:
+        print(f"📂 초기 학습: {args.pruned_weights} 로드")
+        pruned_state = torch.load(args.pruned_weights, map_location=device)['params']
+        student_model.load_state_dict(pruned_state, strict=False)
     student_model.train()
     
     teacher_hook = CATANetModelHooking(args=None, model=teacher_model)
