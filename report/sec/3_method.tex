@@ -1,0 +1,31 @@
+\section{Method}
+We trained a student model (CATANet-XS) by applying a pruning and distillation pipeline to CATANet (Fig.~\ref{fig:catanet}).
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{catanet_arch.png}
+    \caption{CATA forms token centers through average pooling, groups tokens for efficient processing, and applies cross-subgroup attention so each subgroup attends only to neighboring keys, enabling lightweight and effective token aggregation.}
+    \label{fig:catanet}
+\end{figure}
+
+\subsection{Trajectory-Based Pruning}
+To identify redundant components within CATANet, we leverage the trajectory-based importance metric (TBI) from OPTIN (Fig.~\ref{fig:optine}). Since OPTIN cannot be directly applied to CATANet's hybrid CNN-Transformer structure, we implement custom layers to generate pruning masks.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{optine.png}
+    \caption{OPTIN framework computes layer-wise importance by comparing intermediate feature embeddings with fixed pre-computed teacher embeddings. A mask is applied to prune less important components.}
+    \label{fig:optine}
+\end{figure}
+
+\subsection{Feature-based Distillation Strategy}
+After pruning, we employed knowledge distillation to recover performance. We evaluated three approaches: (1) Output KD that minimizes L1 distance between teacher and student outputs, (2) Feature KD that aligns intermediate feature maps, and (3) FaKD (Fig.~\ref{fig:fakd}) \cite{he2020fakd} which transfers spatial affinity relationships between features.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{fakd_arch.png}
+    \caption{FaKD generates spatial affinity matrices from normalized feature maps, capturing pixel-level relationships for richer supervision.}
+    \label{fig:fakd}
+\end{figure}
+
+\subsection{Training Setup}
+We use DIV2K for training (batch size 16, patch size 128) and Set5 for validation with $\times$2 scale. Pruning applies MAC constraint of 0.5, achieving 51.95\% FLOPs ratio. Fine-tuning uses AdamW optimizer (lr=$10^{-4}$) for 500 epochs. We compare three KD strategies: Output KD ($\alpha$=0.8, $\beta$=0.5), Feature KD ($\alpha$=0.5, $\beta$=1.0), and FaKD.

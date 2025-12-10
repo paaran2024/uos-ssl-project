@@ -1,0 +1,9 @@
+\section{Related Work}
+\subsection{Lightweight SR Transformers}
+Traditional Transformers have content-agnostic local window approaches issues. CATANet \cite{liu2025catanet} addresses this by proposing an innovative mechanism called Content-Aware Token Aggregation called CATA. CATA improves the inference speed degradation seen in previous clustering models by updating token centers only during the training phase.
+
+\subsection{Pruning}
+Model pruning is a direct method to compress models by removing parameters. Unlike traditional pruning framework that rely on magnitude-based, OPTIN \cite{khaki2024optin} introduces one-shot pruning framework for Transformers. This allows for identifying the optimal sub-network that minimizes information loss without the need for extensive re-training from scratch.
+
+\subsection{Knowledge Distillation}
+Since model pruning inevitably induces performance degradation, a training technique to recover this loss is essential. In Super-Resolution tasks, feature-based distillation is demonstrated to be more effective than logit-based approaches. We specifically adopt Feature-Affinity Knowledge Distillation (FaKD) \cite{he2020fakd}, an advanced method that transfers not only feature values but also their affinity.

@@ -1,0 +1,58 @@
+\section{Experimental Results}
+
+\subsection{Quantitative Results}
+Table~\ref{tab:kd_comparison} summarizes the performance of different KD strategies after 500 epochs of fine-tuning. Starting from the pruned model (35.39 dB), all methods successfully recover performance close to the teacher model (38.26 dB).
+
+\begin{table}[h]
+\centering
+\caption{Knowledge Distillation comparison on Set5 ($\times$2). All models are fine-tuned for 500 epochs from the same pruned checkpoint.}
+\label{tab:kd_comparison}
+\begin{tabular}{lccc}
+\hline
+\textbf{Method} & \textbf{PSNR (dB)} & \textbf{Recovery (\%)} \\
+\hline
+CATANet-L (Teacher) & 38.26 & 100.0 \\
+Pruned (before KD) & 35.39 & 92.5 \\
+\hline
++ Output KD & 38.15 & 99.7 \\
++ Feature KD & 38.09 & 99.6 \\
++ FaKD & \textcolor{red}{TBD} & \textcolor{red}{TBD} \\
+\hline
+\end{tabular}
+\end{table}
+
+Output KD achieves the best result among completed experiments with 38.15 dB, recovering 99.7\% of the teacher performance. Feature KD follows closely at 38.09 dB. FaKD training is ongoing and expected to achieve the highest performance due to its richer supervision through affinity transfer.
+
+Table~\ref{tab:catanet_baseline} compares our CATANet-XS with existing lightweight SR models.
+
+\begin{table}[h]
+\centering
+\caption{Comparison with lightweight SR models on Set5 ($\times$2).}
+\label{tab:catanet_baseline}
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{l c c}
+\hline
+\textbf{Method} & \textbf{Params} & \textbf{PSNR (dB)} \\
+\hline
+ATD-L & 484K & 38.23 \\
+SMFANet+ & 480K & 38.18 \\
+CATANet-L & 477K & 38.28 \\
+\hline
+ATD-S & 229K & 38.07 \\
+SAFMN & 228K & 38.00 \\
+CATANet-S & 230K & 38.13 \\
+\hline
+\textbf{CATANet-XS (Ours)} & \textcolor{red}{TBD} & \textcolor{red}{TBD} \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Convergence Analysis}
+Fig.~\ref{fig:psnr_curve} shows the validation PSNR curves during fine-tuning. Both methods converge rapidly within 100 epochs, with Output KD showing slightly more stable convergence. Feature KD exhibits more variance but achieves comparable final performance.
+
+%% \begin{figure}[h]
+%%     \centering
+%%     \includegraphics[width=0.9\linewidth]{output_kd_psnr.png}
+%%     \caption{Validation PSNR curves for Output KD and Feature KD over 500 epochs.}
+%%     \label{fig:psnr_curve}
+%% \end{figure}

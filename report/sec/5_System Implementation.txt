@@ -1,0 +1,35 @@
+\section{System Implementation}
+This section describes the Flutter-based mobile application designed to deploy CATANet for on-device super-resolution.
+
+\subsection{Application Architecture}
+The application consists of two main tabs managed by Flutter's DefaultTabController: PictureTab for image upscaling and VideoTab for video processing. Both tabs share a consistent UI pattern with input/output media containers, resolution display, and inference time measurement (Fig.~\ref{fig:taskflow}).
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.7\linewidth]{tf.png}
+    \caption{Application workflow: users select media, perform AI upscaling, and save results to gallery.}
+    \label{fig:taskflow}
+\end{figure}
+
+\subsection{PyTorch Lite Integration}
+We use \texttt{flutter\_pytorch\_lite} package to run PyTorch models directly on mobile devices. The model file (\texttt{CATANet-L\_x2\_1280.ptl}) is loaded from assets and cached in temporary storage for efficient reuse.
+
+\subsubsection{Image Processing Pipeline}
+The image conversion follows these steps:
+\begin{enumerate}
+    \item \textbf{Resize}: Input image is resized to fixed 1280$\times$1280 resolution using bilinear interpolation
+    \item \textbf{Tensor Conversion}: Image is converted to CHW format Float32 tensor with 0-1 normalization
+    \item \textbf{Inference}: PyTorch Lite module performs forward pass
+    \item \textbf{Output Decoding}: Output tensor (2560$\times$2560) is converted back to image and encoded as PNG
+\end{enumerate}
+
+The fixed input size (1280$\times$1280) ensures consistent memory usage and inference time across different input resolutions. The $\times$2 upscaling produces 2560$\times$2560 output images.
+
+\subsubsection{PictureTab Implementation}
+Users select images from gallery via \texttt{ImagePicker}. The selected image is loaded as \texttt{Uint8List} and displayed in the input container. After upscaling, the output is rendered using \texttt{Image.memory()} which directly renders byte arrays on GPU without intermediate file storage. Resolution badges display both input and output dimensions for easy comparison.
+
+\subsubsection{VideoTab Implementation}
+VideoTab follows similar patterns with \texttt{VideoPlayerController} for playback. The output video supports full-screen viewing and can be saved to device gallery.
+
+\subsection{Model Conversion}
+Since Flutter does not natively support PyTorch, we convert the trained model to TorchScript format (.ptl) using \texttt{torch.jit.trace()}. This enables efficient on-device inference while preserving model accuracy.
