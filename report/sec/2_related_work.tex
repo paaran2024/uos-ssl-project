@@ -1,0 +1,10 @@
+\section{Related Work}
+
+\subsection{Lightweight SR Transformers}
+Transformer-based super-resolution models have achieved state-of-the-art performance but suffer from quadratic complexity in self-attention. SwinIR~\cite{liang2021swinir} introduced shifted window attention to reduce complexity, while ESRT~\cite{lu2022esrt} proposed efficient Transformer blocks for mobile deployment. CATANet~\cite{liu2025catanet} addresses content-agnostic local window issues through Content-Aware Token Aggregation (CATA), which improves inference speed by updating token centers only during training. However, these models still rely on manually designed size variants (S/M/L).
+
+\subsection{Pruning}
+Model pruning compresses networks by removing redundant parameters. Traditional approaches use magnitude-based criteria, requiring iterative pruning and retraining cycles. Recent work explores structured pruning for Transformers: ViT-Slim~\cite{chavan2022vision} prunes attention heads and FFN neurons jointly. OPTIN~\cite{khaki2024optin} introduces one-shot pruning using trajectory-based importance (TBI), identifying optimal sub-networks without extensive retraining. We extend OPTIN to handle CATANet's hybrid CNN-Transformer structure.
+
+\subsection{Knowledge Distillation}
+Knowledge distillation transfers knowledge from a large teacher to a compact student model. Hinton et al.~\cite{hinton2015distilling} proposed logit-based distillation using softened outputs. For dense prediction tasks like SR, feature-based methods prove more effective. FAKD~\cite{he2020fakd} introduces feature-affinity distillation that transfers spatial relationships between pixels rather than raw feature values, which is particularly suited for SR where local structure preservation matters.

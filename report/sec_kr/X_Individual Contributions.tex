@@ -1,0 +1,29 @@
+\section{개인별 기여}
+
+\subsection{모델 구현 및 모바일 배포}
+\textbf{담당: 이해준}
+
+\begin{itemize}
+    \item DIV2K 학습 파이프라인을 포함한 CATANet-L 베이스라인 구현
+    \item 세 가지 KD 전략(Output KD, Feature KD, FaKD) 500 에폭 학습 및 검증
+    \item \texttt{torch.jit.trace()}와 모바일 최적화를 통한 TorchScript 모델 변환(.ptl)
+    \item 타일 기반 처리 및 실시간 진행 시각화를 포함한 Flutter-PyTorch 통합
+\end{itemize}
+
+\subsection{OPTIN 기반 프루닝}
+\textbf{담당: 박준우}
+
+\begin{itemize}
+    \item CATANet의 하이브리드 CNN-Transformer 아키텍처에 OPTIN 프레임워크 적용
+    \item TAB, LRSA, ConvFFN에 대한 레이어별 마스크 생성을 포함한 TBI(궤적 기반 중요도) 알고리즘 구현
+    \item 54.96\% FLOPs 감소를 달성하도록 MAC 제약 파라미터 최적화
+    \item CATANet 호환성을 위한 참조 구현(OPTIN, FaKD) 수정
+\end{itemize}
+
+\subsection{모바일 애플리케이션 개발}
+\textbf{담당: 이지윤 (UI/UX), 이채은 (기능)}
+
+\begin{itemize}
+    \item \textbf{이지윤}: 탭 기반 내비게이션 UI(Picture/Video) 설계, 전후 비교를 위한 시각적 레이아웃, 다양한 화면 크기에 대한 반응형 디자인
+    \item \textbf{이채은}: \texttt{image\_picker}를 활용한 이미지 처리 구현, Flutter와 PyTorch Lite를 연결하는 추론 파이프라인, 비디오 프레임 추출 및 재구성
+\end{itemize}

@@ -12,6 +12,17 @@ from inspect import isfunction
 # from basicsr.archs.arch_util import trunc_normal_
 import math
 
+# PyTorch 1.13 호환성: scaled_dot_product_attention
+def scaled_dot_product_attention(q, k, v):
+    """PyTorch 1.13 호환 scaled_dot_product_attention 구현"""
+    if hasattr(F, 'scaled_dot_product_attention'):
+        return F.scaled_dot_product_attention(q, k, v)
+    # PyTorch 1.13 이하: 수동 구현
+    d_k = q.size(-1)
+    scores = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(d_k)
+    attn = F.softmax(scores, dim=-1)
+    return torch.matmul(attn, v)
+
 # --- 유틸리티 함수들 ---
 # 이 함수들은 모델 내에서 반복적으로 사용되는 작은 기능들을 정의합니다.
 
@@ -127,12 +138,12 @@ class IASA(nn.Module):
         paded_v = rearrange(paded_v, "b ng (h d) gs -> b ng h gs d",h=self.heads)
         
         # 1. 그룹 내 셀프 어텐션 (Intra-group self-attention)
-        out1 = F.scaled_dot_product_attention(paded_q,paded_k,paded_v)
+        out1 = scaled_dot_product_attention(paded_q,paded_k,paded_v)
 
         # 2. 그룹과 전역 중심 간의 크로스 어텐션 (Inter-group cross-attention)
         k_global = k_global.reshape(1,1,*k_global.shape).expand(B,ng,-1,-1,-1)
         v_global = v_global.reshape(1,1,*v_global.shape).expand(B,ng,-1,-1,-1)
-        out2 = F.scaled_dot_product_attention(paded_q,k_global,v_global)
+        out2 = scaled_dot_product_attention(paded_q,k_global,v_global)
         
         # 두 어텐션 결과를 합칩니다.
         out = out1 + out2
@@ -390,7 +401,7 @@ class Attention(nn.Module):
     def forward(self, x):
         q, k, v = self.to_q(x), self.to_k(x), self.to_v(x)
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h=self.heads), (q, k, v))
-        out = F.scaled_dot_product_attention(q,k,v)
+        out = scaled_dot_product_attention(q,k,v)
         out = rearrange(out, 'b h n d -> b n (h d)')
         return self.proj(out)
 

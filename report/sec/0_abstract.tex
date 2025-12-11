@@ -1,0 +1,7 @@
+\begin{abstract}
+Model compression is essential for deploying AI models in on-device environments. While existing lightweight super-resolution models like CATANet~\cite{liu2025catanet} offer impressive performance, their architectures are static and manually designed for specific sizes (e.g., S/M/L). This raises the question of whether an automatically generated architecture could be more efficient than its manually designed counterpart.
+
+In this work, we create CATANet-XS by applying the OPTIN framework~\cite{khaki2024optin} and Feature-based Knowledge Distillation~\cite{hinton2015distilling, he2020fakd} to CATANet-L. We validate whether CATANet-XS can achieve competitive performance compared to the manually designed CATANet-S while maintaining efficient inference.
+
+Our results show that CATANet-XS recovers 99.7\% of the teacher's performance (38.15 dB vs 38.26 dB on Set5), competitive with CATANet-S (38.13 dB). We further demonstrate practical deployment through a Flutter-based mobile application with tile-based processing for memory-efficient inference. This pipeline can be generically applied to other Transformer-based Super-Resolution models.
+\end{abstract}

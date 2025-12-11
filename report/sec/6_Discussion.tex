@@ -1,0 +1,50 @@
+\section{Discussion}
+
+\subsection{Can Automated Pruning Beat Manual Design?}
+Our initial motivation was simple: we wondered whether an automatically generated architecture could outperform a manually designed one. The results suggest yes, but with caveats.
+
+CATANet-XS achieved 38.15 dB on Set5, slightly surpassing CATANet-S's 38.13 dB. This is meaningful because CATANet-S was carefully hand-tuned by the original authors, while our model was derived automatically from CATANet-L through pruning. We think this validates our hypothesis that manual hyperparameter tuning (e.g., setting dim=36, block\_num=4) does not guarantee optimal parameter allocation.
+
+However, we should note that the performance gap is marginal (0.02 dB). Whether this difference is practically significant remains questionable. What we can confidently say is that automated pruning at least matches manual design quality while inheriting knowledge from the larger teacher model.
+
+\subsection{Why Output KD Works Best}
+We initially expected FaKD to outperform simpler approaches, given its sophisticated spatial affinity transfer mechanism. Surprisingly, Output KD achieved the best result (38.15 dB), followed by FaKD (38.14 dB) and Feature KD (38.08 dB).
+
+We think this happened because super-resolution is fundamentally a pixel-level reconstruction task. The final output directly determines PSNR, so forcing the student to match the teacher's output pixel-by-pixel provides the most direct supervision. FaKD's affinity matrices capture structural relationships, but these may be redundant when the output itself is already being matched.
+
+Feature KD's lower performance was unexpected. We suspect the intermediate feature spaces of CATANet-L and our pruned model have different distributions, making direct feature matching suboptimal without additional alignment layers.
+
+\subsection{Mobile Deployment: Lessons Learned}
+Deploying CATANet-XS on mobile devices revealed practical challenges not apparent from benchmark numbers.
+
+Our initial approach using a 320$\times$320 input model caused iOS to crash with memory overflow errors (exceeding the 3GB limit). This forced us to implement tile-based processing with 64$\times$64 tiles. While this solved the memory issue, it introduced visible seam artifacts at tile boundaries, which we mitigated through 8-pixel overlap blending.
+
+We also observed sporadic green speckle artifacts in smooth regions (Fig.~\ref{fig:artifact_analysis}). These do not appear in desktop inference, suggesting they originate from either TorchScript conversion or mobile floating-point precision differences. This remains an open issue.
+
+\begin{figure}[h]
+    \centering
+    \begin{tabular}{cc}
+        \includegraphics[width=0.45\linewidth]{fig7_input.png} &
+        \includegraphics[width=0.45\linewidth]{fig7_output.jpeg} \\
+        (a) Input & (b) Output ($\times$2) \\
+    \end{tabular}
+    \caption{Visual comparison from mobile application.}
+    \label{fig:visual_comparison}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \begin{tabular}{cc}
+        \includegraphics[width=0.45\linewidth]{fig8_zoom_input.jpeg} &
+        \includegraphics[width=0.45\linewidth]{fig8_zoom_output.jpeg} \\
+        (a) Input (zoomed) & (b) Output (zoomed) \\
+    \end{tabular}
+    \caption{Artifact analysis: green speckles in smooth regions after mobile inference.}
+    \label{fig:artifact_analysis}
+\end{figure}
+
+\subsection{Limitations}
+Several limitations should be acknowledged. First, our evaluation focused solely on Set5. Broader benchmarks (Set14, Urban100, Manga109) would provide more comprehensive validation. Second, we did not achieve our original goal of real-time video processing (24 fps). The tile-based approach adds significant overhead, and current mobile hardware cannot sustain real-time SR at practical resolutions. Third, the pruned model still requires explicit rebuilding to achieve actual parameter reduction; our current implementation uses sparse masks rather than physically smaller weights.
+
+\subsection{Future Directions}
+We see two promising directions. First, combining Output KD's stability with FaKD's structural supervision through a hybrid loss function may yield better results. Second, investigating INT8 quantization could further reduce memory footprint and potentially enable larger tile sizes, reducing boundary artifacts while improving throughput.

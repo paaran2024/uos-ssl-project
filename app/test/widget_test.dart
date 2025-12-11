@@ -8,23 +8,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:app/main.dart';
+import 'package:contact/main.dart';
+import 'package:contact/picture_tab.dart';
+import 'package:contact/video_tab.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
+  testWidgets('App navigation smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget( MyApp());
+    await tester.pumpWidget(MyApp());
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // Verify that the initial tab is 'picture'.
+    expect(find.text('picture'), findsOneWidget);
+    expect(find.text('video'), findsOneWidget);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
+    // Verify PictureTab is shown
+    expect(find.byType(PictureTab), findsOneWidget);
+    expect(find.byType(VideoTab), findsNothing);
+
+    // Tap the 'video' tab and trigger a frame.
+    await tester.tap(find.byIcon(Icons.video_collection_rounded));
     await tester.pump();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Verify that VideoTab is shown
+    expect(find.byType(PictureTab), findsNothing);
+    expect(find.byType(VideoTab), findsOneWidget);
   });
 }

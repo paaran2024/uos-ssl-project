@@ -1,0 +1,15 @@
+\section{Discussion}
+\subsection{Strengths and Effective Components}
+
+%% 잘한점?
+
+
+\subsection{Limitations}
+%% Also demonstrate the limitations of your approach. When doesn’t it work? Why? What steps would you have taken had you continued working on it?
+
+%% 앱 부분 접근 한계점?
+우리는 PyTorch 기반으로 모델을 설계하였으나, 앱 구현에 사용한 Flutter는 PyTorch 모델을 직접 실행할 수 있는 공식 runtime을 제공하지 않는다. Flutter는 CPU 기반 TensorFlow Lite(TFLite)를 지원한다. 이는 일반적인 CNN 기반 lightweight 모델에는 적합하지만, Transformer 기반 SR 모델(CATANet)에서는 변환 과정에서 여러 지원되지 않는 연산이 발생한다. 이로 인해 pth 파일을 TFLite로 변환하여 연동하려던 초기 계획을 그대로 적용하기 어려워졌으며, 모델 연결 방식에 대한 대안을 모색해야 했다.
+**열린결말 완성 후 수정 예정**
+
+
+%% 6.3 발전 가능성?? 쓸지말지

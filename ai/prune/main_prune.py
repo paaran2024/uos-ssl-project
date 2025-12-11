@@ -20,26 +20,22 @@ def pruneModel(args, model, train_dataset, model_config):
        "patch_size": args.seq_len+1 
     }
     
-    # MODIFIED: Removed the entire `if args.task_name == "language":` block
-    # as it's not relevant and caused an import error.
     if args.task_name == "vision":
         head_mask_results = pruneHead(model, train_dataset, args, prunedProps)
-        
         intermediate_neuron_results = pruneVisionNeurons(model, train_dataset, args, prunedProps)
         
         visionProps = {
             "head_results": head_mask_results,
             "intermediate_results": intermediate_neuron_results,
             "mac_details": get_mac_details(args, prunedProps)
-            
         }
         
         masks, prunedComplexity = globalRankingVision(args, model, prunedProps, visionProps)
         
         pruningParams = {
-        "head_mask":  masks["head_mask"],
-        "neuron_mask": masks["intermediate_mask"],
-        "patch_mask": masks["patch_mask"]
+            "head_mask":  masks["head_mask"],
+            "neuron_mask": masks["intermediate_mask"],
+            "patch_mask": masks["patch_mask"]
         }
         
         baselineComplexity = visionProps["mac_details"]["base_mac"]
@@ -47,75 +43,7 @@ def pruneModel(args, model, train_dataset, model_config):
     else:
         raise ValueError(f"Task name '{args.task_name}' is not supported for pruning.")
 
-    
     return pruningParams,baselineComplexity,prunedComplexity 
-
-
-
-
-
-def globalRankingLanguage(args, prunedProps, languageProps):
-    # This function is now dead code but is kept in case language tasks are
-    # reintroduced. It will not be called.
-    head_mask = languageProps["head_results"]["final_head_ranking"]
-    head_rank = [list((tensor_cpu.cpu().detach().item(), *rest)) for tensor_cpu, *rest in head_mask]
-    head_rank = np.array(head_rank)
-    
-    neuron_mask = languageProps["intermediate_results"]["final_neuron_ranking"]
-    neuron_rank = [list((tensor_cpu.cpu().detach().item(), *rest)) for tensor_cpu, *rest in neuron_mask]
-    neuron_rank = np.array(neuron_rank)
-    
-    head_mac = languageProps["mac_details"]["head_mac"]
-    neuron_mac = languageProps["mac_details"]["neuron_mac"]
-    baseline_mac = languageProps["mac_details"]["base_mac"]
-    
-    capacity_mac = args.mac_constraint * baseline_mac
-    
-    
-    max_importance = 0
-    for num_heads in (range(1, prunedProps["num_att_head"]*prunedProps["num_layers"] + 1)):
-        current_importance = 0
-        
-        for i in range(num_heads):
-            score, _, _, _ = head_rank[i]
-            current_importance += -1*float(score)
-        
-        count_head_mac = head_mac * (num_heads)
-        remaining_mac = capacity_mac - count_head_mac
-        
-        num_neurons=0
-        while remaining_mac >= neuron_mac and num_neurons < len(neuron_rank):
-            score, neuron_layer, neuron_index, name = neuron_rank[num_neurons]
-            current_importance += -1*float(score)
-            num_neurons +=1 
-            remaining_mac -= neuron_mac
-        
-        if current_importance > max_importance:
-            max_importance = current_importance
-            head_indicies = num_heads
-            neuron_indicies = num_neurons
-    
-    final_head_mask = torch.zeros((prunedProps["num_layers"],prunedProps["num_att_head"]))
-    final_neuron_mask = torch.zeros((prunedProps["num_layers"],prunedProps["inter_size"]))
-    
-    for i in range(head_indicies):
-        score, head_layer, head_index, name = head_rank[i]
-        final_head_mask[int(head_layer)][int(head_index)] = 1
-        
-    for i in range(neuron_indicies):
-        score, neuron_layer, neuron_index, name = neuron_rank[i]
-        final_neuron_mask[int(neuron_layer)][int(neuron_index)] = 1
-    
-    
-    print(final_head_mask.sum(-1),final_neuron_mask.sum(-1))
-    
-    masks = {
-        "head_mask": final_head_mask,
-        "intermediate_mask": final_neuron_mask
-    }
-    
-    return masks
-
 
 def globalRankingVision(args, model, prunedProps, visionProps):
     
@@ -127,50 +55,31 @@ def globalRankingVision(args, model, prunedProps, visionProps):
     neuron_rank = [list((tensor_cpu.cpu().detach().item(), *rest)) for tensor_cpu, *rest in neuron_mask]
     neuron_rank = np.array(neuron_rank)
     
-    #* Patch neurons are at idx > inter_size
-    
     head_mac = visionProps["mac_details"]["head_mac"]
     neuron_mac = visionProps["mac_details"]["neuron_mac"]
     patch_mac = visionProps["mac_details"]["patch_mac"]
-    
     baseline_mac = visionProps["mac_details"]["base_mac"]
-    
     capacity_mac = args.mac_constraint * baseline_mac
-    
     ammount_to_be_reduced = (1-args.mac_constraint)*baseline_mac
     
-    
-    if args.beta_config_only: #* Beta Configuration
+    if args.beta_config_only:
         controlled_ammount_head_neuron = ammount_to_be_reduced
         controlled_ammount_patches = 0
-    else: #* Tau Configuration
+    else:
         controlled_ammount_head_neuron = ammount_to_be_reduced*np.random.uniform(0.15, 0.30)
         controlled_ammount_patches = ammount_to_be_reduced - controlled_ammount_head_neuron
     
     head_neuron_based_capacity = baseline_mac - controlled_ammount_head_neuron
     
-    # --- [핵심 수정] 여기서부터 가지치기 조합을 찾는 탐색 알고리즘이 시작됩니다. ---
-    # 이전 코드의 논리적 오류로 인해 mac_constraint 설정이 무시되는 문제가 있었습니다.
-    # 아래 두 가지 수정을 통해 이 문제를 해결했습니다.
-
-    # 1. [수정] 중요도 순위 리스트 뒤집기
-    # head_rank와 neuron_rank는 점수(손실)가 낮은 순(덜 중요한 순)으로 정렬되어 있습니다.
-    # 가장 중요한 헤드/뉴런부터 고려하기 위해 리스트 순서를 뒤집습니다.
     head_rank = head_rank[::-1]
     neuron_rank = neuron_rank[::-1]
     
-    # 2. [수정] max_importance 초기값 변경
-    # 중요도 점수가 음수이므로, 최적의 값(가장 0에 가까운 음수)을 찾기 위해
-    # 초기값을 0이 아닌 음의 무한대로 설정합니다.
     max_importance = -float('inf')
     best_neuron_indicies = None
     
-    # 반복문을 통해 (유지할 헤드 개수)를 1개부터 전체 개수까지 늘려가며
-    # 예산(head_neuron_based_capacity) 내에서 최적의 헤드/뉴런 조합을 찾습니다.
     for num_heads in (range(1, prunedProps["num_att_head"]*prunedProps["num_layers"] + 1)):
         current_importance = 0
         
-        # 가장 중요한 헤드부터 num_heads 개수만큼의 중요도 점수를 합산합니다.
         for i in range(num_heads):
             score, _, _, _ = head_rank[i]
             current_importance += -1*float(score)
@@ -181,23 +90,16 @@ def globalRankingVision(args, model, prunedProps, visionProps):
         idx = 0
         num_neurons=0
         neuron_indicies =[]
-        # 남은 예산을 가장 중요한 뉴런부터 순서대로 채워 넣습니다.
         while remaining_mac > 0 and num_neurons < prunedProps["inter_size"]*prunedProps["num_layers"]:
             score, neuron_layer, neuron_index, name = neuron_rank[idx]
             idx += 1
-            
-            #* Skipping Patches in this search
             if int(neuron_index) >= prunedProps["inter_size"]:
                 continue
-            
             current_importance += -1*float(score)
             num_neurons +=1 
-            
             remaining_mac -= neuron_mac
-            
             neuron_indicies.append(idx-1)
 
-        # 현재 조합의 점수가 이전에 찾은 최적의 점수보다 높으면, 최적의 조합으로 업데이트합니다.
         if current_importance > max_importance:
             max_importance = current_importance
             head_indicies = num_heads
@@ -206,118 +108,97 @@ def globalRankingVision(args, model, prunedProps, visionProps):
     final_head_mask = torch.zeros((prunedProps["num_layers"],prunedProps["num_att_head"]))
     final_neuron_mask = torch.zeros((prunedProps["num_layers"],prunedProps["inter_size"]))
     
-    #* Populate Head and Neuron only Masks
     for i in range(head_indicies):
         score, head_layer, head_index, name = head_rank[i]
         final_head_mask[int(head_layer)][int(head_index)] = 1
         
-    for i in best_neuron_indicies:
-        score, neuron_layer, neuron_index, name = neuron_rank[i]
-        
-        neuron_layer = int(neuron_layer)
-        neuron_index = int(neuron_index)
-        final_neuron_mask[neuron_layer][neuron_index] = 1
-        
+    if best_neuron_indicies:
+        for i in best_neuron_indicies:
+            score, neuron_layer, neuron_index, name = neuron_rank[i]
+            neuron_layer = int(neuron_layer)
+            neuron_index = int(neuron_index)
+            final_neuron_mask[neuron_layer][neuron_index] = 1
+            
+    # --- [핵심 수정] ---
+    # 각 레이어에 최소 1개의 헤드와 뉴런이 유지되도록 강제합니다.
+    # 이를 통해 0개의 헤드/뉴런을 가진 유효하지 않은 아키텍처가 생성되는 것을 방지합니다.
+    
+    # 1. 헤드 강제 유지
+    layer_head_sums = final_head_mask.sum(dim=1)
+    for i in range(prunedProps["num_layers"]):
+        if layer_head_sums[i] == 0:
+            # 이 레이어에서 가장 중요한 헤드를 찾습니다.
+            # head_rank는 [score, layer, head_idx, name] 형태입니다.
+            most_important_head_for_layer = None
+            for _, h_layer, h_idx, _ in head_rank:
+                if int(h_layer) == i:
+                    most_important_head_for_layer = int(h_idx)
+                    break
+            if most_important_head_for_layer is not None:
+                print(f"[CONSTRAINT] Layer {i} has 0 heads. Forcing to keep the most important head: {most_important_head_for_layer}")
+                final_head_mask[i][most_important_head_for_layer] = 1
+
+    # 2. 뉴런 강제 유지 (일반적으로는 뉴런이 모두 제거되는 경우가 적지만, 안전장치로 추가)
+    layer_neuron_sums = final_neuron_mask.sum(dim=1)
+    for i in range(prunedProps["num_layers"]):
+        if layer_neuron_sums[i] == 0:
+            most_important_neuron_for_layer = None
+            for _, n_layer, n_idx, _ in neuron_rank:
+                if int(n_layer) == i:
+                    most_important_neuron_for_layer = int(n_idx)
+                    break
+            if most_important_neuron_for_layer is not None:
+                print(f"[CONSTRAINT] Layer {i} has 0 neurons. Forcing to keep the most important neuron: {most_important_neuron_for_layer}")
+                final_neuron_mask[i][most_important_neuron_for_layer] = 1
+
     print(f"!!! DEBUG: Final masks created. Heads kept: {final_head_mask.sum().item()}. Neurons kept: {final_neuron_mask.sum().item()}.")
     
-    ### We have now achieved our first search (i.e completed Head and Neuron Level Searches)
     final_patch_mask = torch.ones((prunedProps["num_layers"],prunedProps["patch_size"]))
-
-    
-    reversed_neuron_rank = neuron_rank[::-1] # We are going in order of removal
-    
-    remaining_mac = controlled_ammount_patches
-    
     
     pruningParams = {
-        "head_mask":  final_head_mask, 
+        "head_mask": final_head_mask, 
         "neuron_mask": final_neuron_mask,
-        "patch_mask":final_patch_mask # Assumes all Patches Present !
-        }
+        "patch_mask":final_patch_mask
+    }
     
-
-    new_baseline_mac = compute_pruned_mac(args, prunedProps, pruningParams, skipConv=True)
+    # Recalculate pruned MACs with the constrained masks
+    curr_mac = compute_pruned_mac(args, prunedProps, pruningParams, skipConv=False)
     
-    curr_mac = new_baseline_mac
-
-    #* Only Active for Tau Configurations!
-
-    if not args.beta_config_only:
-        print("Tau Config", new_baseline_mac,new_baseline_mac-remaining_mac)
-        idx = 0
-        while curr_mac > new_baseline_mac-remaining_mac:
-            score, neuron_layer, neuron_index, name = reversed_neuron_rank[idx]
-            idx +=1
-
-            #* Skips non-patch indices -- i.e we only search for patch configuraiton
-            if int(neuron_index) < prunedProps["inter_size"] or int(neuron_layer)==0: 
-                continue
-            
-            #* Re-Compute the Current mac information
-            final_patch_mask[(int(neuron_layer))][int(neuron_index)-prunedProps["inter_size"]] = 0
-            proc_patch_mask = process_patch_mask(final_patch_mask)
-            pruningParams["patch_mask"] = proc_patch_mask
-            curr_mac = compute_pruned_mac(args, prunedProps, pruningParams, skipConv=True)
-
+    flop_red = (baseline_mac - curr_mac) / baseline_mac
     
-    if args.beta_config_only:
-        assert (final_patch_mask).sum() == final_patch_mask.numel()
-        
-    final_patch_mask = process_patch_mask(final_patch_mask)
+    print("-----------------------------------------------")
+    print("||")
+    print(f"|| Planned Total Flop Reduction is {1 - args.mac_constraint:.2f}") 
+    print(f"|| Actual Total Flop Reduction is {flop_red:.4f}") 
+    print("||")
+    print("-----------------------------------------------")
     
-    
-
     masks = {
         "head_mask": final_head_mask,
         "intermediate_mask": final_neuron_mask,
-        "patch_mask": final_patch_mask
+        "patch_mask": process_patch_mask(final_patch_mask)
     }
     
-
-    flop_red = ammount_to_be_reduced/baseline_mac
-    
-    
-    print("-----------------------------------------------")
-    print("||")
-    print(f"|| Planned Total Flop Reduction is {flop_red}") 
-    print(f"|| Actual Total Flop Reduction is {1- (curr_mac/baseline_mac)}") 
-    print("||")
-    print("-----------------------------------------------")
     return masks, curr_mac
 
-
-
 def process_patch_mask(patch_mask):
-    
     newPatchMask = []
     prev_sel_ind = None
-
     for idx in range(len(patch_mask)):
         if idx == 0:
             newPatchMask.append(patch_mask[idx])
             prev_sel_ind = np.where(patch_mask[idx] == 1)[0]
         else:
-            
             if patch_mask[idx].sum() >= newPatchMask[-1].sum() or patch_mask[idx].sum()/len(patch_mask[idx]) <= 0.1:
                 newPatchMask.append(torch.ones(int(newPatchMask[-1].sum().item())))
-            
             else:
-                 
-                curr_indices = np.where(patch_mask[idx] == 1)[0] # out of 197
-                
-                
+                curr_indices = np.where(patch_mask[idx] == 1)[0]
                 mask = torch.zeros((len(prev_sel_ind)))
-                
                 new_curr_indices = []
                 for ind in curr_indices:
-                    
                     if ind in prev_sel_ind:
                         new_curr_indices.append(ind)
-                        mask[np.where(prev_sel_ind ==ind)[0]] = 1
+                        mask[np.where(prev_sel_ind == ind)[0]] = 1
                 newPatchMask.append(mask)
                 prev_sel_ind = np.array(new_curr_indices)
-                
-                
-           
-                
     return newPatchMask

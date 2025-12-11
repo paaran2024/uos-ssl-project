@@ -1,0 +1,58 @@
+\section{Experimental Results}
+
+\subsection{Pruning Analysis}
+We applied OPTIN pruning with MAC constraint 0.4, targeting 60\% FLOPs reduction (40\% retention). The actual result achieved 54.96\% reduction, retaining 45.04\% of the original FLOPs. The pruned model achieved 35.39 dB on Set5 before knowledge distillation, demonstrating that significant computational savings are possible while maintaining reasonable baseline performance.
+
+\subsection{Knowledge Distillation Results}
+Table~\ref{tab:kd_comparison} summarizes the performance of different KD strategies after 500 epochs of fine-tuning. Starting from the pruned model (35.39 dB), all methods successfully recovered performance close to the teacher model (38.26 dB).
+
+\begin{table}[h]
+\centering
+\caption{Knowledge Distillation comparison on Set5 ($\times$2). All models fine-tuned for 500 epochs from the same pruned checkpoint.}
+\label{tab:kd_comparison}
+\begin{tabular}{lcc}
+\hline
+\textbf{Method} & \textbf{PSNR (dB)} & \textbf{Recovery (\%)} \\
+\hline
+CATANet-L (Teacher) & 38.26 & 100.0 \\
+Pruned (before KD) & 35.39 & 92.5 \\
+\hline
++ Output KD & 38.15 & 99.7 \\
++ Feature KD & 38.08 & 99.5 \\
++ FaKD & 38.14 & 99.7 \\
+\hline
+\end{tabular}
+\end{table}
+
+Output KD achieved 38.15 dB, recovering 99.7\% of the teacher performance. Feature KD followed at 38.08 dB (99.5\%). FaKD achieved 38.14 dB (99.7\%), matching Output KD's recovery rate while providing richer spatial affinity supervision. All three methods demonstrate that knowledge distillation can effectively recover performance loss from aggressive pruning.
+
+\subsection{Comparison with Lightweight SR Models}
+Table~\ref{tab:catanet_baseline} compares our CATANet-XS with existing lightweight SR models on Set5. We denote our model as ``XS'' (extra-small) based on the reduced number of iterations in the Transformer blocks, which directly correlates with computational cost.
+
+\begin{table}[h]
+\centering
+\caption{Comparison with lightweight SR models on Set5 ($\times$2).}
+\label{tab:catanet_baseline}
+\begin{tabular}{l c}
+\hline
+\textbf{Method} & \textbf{PSNR (dB)} \\
+\hline
+CATANet-L (Teacher) & 38.26 \\
+CATANet-S & 38.13 \\
+\hline
+\textbf{CATANet-XS (Ours)} & 38.15 \\
+\hline
+\end{tabular}
+\end{table}
+
+CATANet-XS achieves 38.15 dB with Output KD, outperforming the manually designed CATANet-S (38.13 dB) while requiring significantly fewer iterations due to pruned attention heads and FFN neurons. This demonstrates that automated pruning can discover more efficient configurations than hand-crafted architectures.
+
+\subsection{Convergence Analysis}
+Fig.~\ref{fig:psnr_comparison} compares the validation PSNR curves of the three KD strategies over 500 epochs. All methods converged rapidly within the first 100 epochs, with Output KD achieving the highest final performance. FaKD showed competitive convergence speed, reaching its best PSNR at epoch 362, while Feature KD peaked at epoch 373 and Output KD at epoch 467.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.9\linewidth]{fig4_kd_psnr_comparison.png}
+    \caption{Validation PSNR comparison of three KD strategies over 500 epochs.}
+    \label{fig:psnr_comparison}
+\end{figure}

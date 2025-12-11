@@ -1,0 +1,15 @@
+\section{Introduction}
+As mobile device usage increases and privacy concerns grow, on-device AI has become increasingly important. In image super-resolution, lightweight Transformer-based models such as CATANet~\cite{liu2025catanet} have achieved significant speedups by precomputing Token Centers during training. However, real-time video processing (24 fps or higher) remains challenging even for state-of-the-art models.
+
+A fundamental limitation of existing approaches is their reliance on manually designed architecture variants. Models like CATANet-S (230K parameters) and CATANet-L (477K parameters) are created by manually tuning hyperparameters such as embedding dimension and block count. This static design process has two key drawbacks: (1) no guarantee of optimal parameter allocation within a given computational budget, and (2) smaller variants cannot leverage knowledge from their larger, better-performing counterparts.
+
+To address these limitations, we propose CATANet-XS, an automatically compressed model derived from CATANet-L through a two-stage pipeline. First, we apply OPTIN~\cite{khaki2024optin}, a trajectory-based one-shot pruning method, to identify and remove redundant attention heads and FFN neurons under a 40\% MAC constraint. This reduces FLOPs by 54.96\% (retaining 45.04\%) while preserving structural integrity. Second, we employ knowledge distillation to recover the performance degradation caused by pruning, comparing Output KD, Feature KD, and FaKD~\cite{he2020fakd} strategies.
+
+Our experiments demonstrate that this automated approach can match or exceed manually designed architectures. With Output KD, CATANet-XS recovers 99.7\% of the teacher's performance (38.15 dB vs 38.26 dB on Set5), competitive with the hand-crafted CATANet-S (38.13 dB). We further deploy the compressed model on mobile devices via a Flutter application, implementing tile-based processing ($64 \times 64$) with overlap blending for memory-efficient inference on arbitrary image sizes.
+
+The main contributions of this work are:
+\begin{itemize}
+    \item Extension of OPTIN pruning to CATANet's hybrid CNN-Transformer architecture with custom mask generation for TAB, LRSA, and ConvFFN modules.
+    \item Systematic comparison of three KD strategies, demonstrating that simple output-level distillation achieves 99.7\% teacher performance recovery.
+    \item End-to-end mobile deployment pipeline with tile-based processing and real-time progress visualization.
+\end{itemize}

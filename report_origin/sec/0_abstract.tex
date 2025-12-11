@@ -1,0 +1,7 @@
+\begin{abstract}
+Lightweighting is essential for ai models in on-device environments. While existing lightweight models like CATANet \cite{liu2025catanet} offer impressive performance, their architectures are static and manually designed for specific sizes (e.g., S/M/L). This leads us to wonder whether an automatically generated architecture could be more efficient than its manually designed one.
+
+In this project, we create CATANet-XS (student) by applying the OPTIN framework \cite{khaki2024optin} and Feature-based Knowledge Distillation \cite{hinton2015distilling, he2020fakd} to a CATANet-L (teacher) model. We seek to validate whether CATANet-XS can demonstrate significant results in terms of inference time and performance compared to the baseline CATANet-S. 
+
+Our goal is to achieve better performance than CATANet-S, while targeting real-time inference speeds (24 fps or more). Furthermore, we will examine the potential for this pipeline to be generically applied to other Transformer-based Super-Resolution models and lead to significant results.
+\end{abstract}
