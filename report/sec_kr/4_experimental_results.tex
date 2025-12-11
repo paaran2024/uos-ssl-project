@@ -1,0 +1,58 @@
+\section{실험 결과}
+
+\subsection{프루닝 분석}
+MAC 제약 0.4로 OPTIN 프루닝을 적용하여 60\% FLOPs 감소(40\% 유지)를 목표로 했다. 실제 결과는 54.96\% 감소를 달성하여 원본 FLOPs의 45.04\%를 유지했다. 프루닝된 모델은 지식 증류 전 Set5에서 35.39 dB를 달성하여, 합리적인 기본 성능을 유지하면서 상당한 연산 절감이 가능함을 보여준다.
+
+\subsection{지식 증류 결과}
+Table~\ref{tab:kd_comparison}는 500 에폭 파인튜닝 후 서로 다른 KD 전략의 성능을 요약한다. 프루닝된 모델(35.39 dB)에서 시작하여 모든 방법이 교사 모델(38.26 dB)에 근접한 성능을 성공적으로 복구했다.
+
+\begin{table}[h]
+\centering
+\caption{Set5 ($\times$2)에서의 지식 증류 비교. 모든 모델은 동일한 프루닝된 체크포인트에서 500 에폭 파인튜닝됨.}
+\label{tab:kd_comparison}
+\begin{tabular}{lcc}
+\hline
+\textbf{방법} & \textbf{PSNR (dB)} & \textbf{복구율 (\%)} \\
+\hline
+CATANet-L (교사) & 38.26 & 100.0 \\
+프루닝됨 (KD 전) & 35.39 & 92.5 \\
+\hline
++ Output KD & 38.15 & 99.7 \\
++ Feature KD & 38.08 & 99.5 \\
++ FaKD & 38.14 & 99.7 \\
+\hline
+\end{tabular}
+\end{table}
+
+Output KD는 38.15 dB를 달성하여 교사 성능의 99.7\%를 복구했다. Feature KD는 38.08 dB(99.5\%)로 뒤따랐다. FaKD는 38.14 dB(99.7\%)를 달성하여 Output KD와 동등한 복구율을 보이면서 더 풍부한 공간적 친화도 감독을 제공한다. 세 방법 모두 지식 증류가 공격적인 프루닝으로 인한 성능 손실을 효과적으로 복구할 수 있음을 보여준다.
+
+\subsection{경량 SR 모델과의 비교}
+Table~\ref{tab:catanet_baseline}은 Set5에서 CATANet-XS와 기존 경량 SR 모델을 비교한다. 트랜스포머 블록의 반복 횟수 감소에 기반하여 ``XS''(extra-small)로 명명했으며, 이는 연산 비용과 직접적으로 연관된다.
+
+\begin{table}[h]
+\centering
+\caption{Set5 ($\times$2)에서 경량 SR 모델과의 비교.}
+\label{tab:catanet_baseline}
+\begin{tabular}{l c}
+\hline
+\textbf{방법} & \textbf{PSNR (dB)} \\
+\hline
+CATANet-L (교사) & 38.26 \\
+CATANet-S & 38.13 \\
+\hline
+\textbf{CATANet-XS (Ours)} & 38.15 \\
+\hline
+\end{tabular}
+\end{table}
+
+CATANet-XS는 Output KD로 38.15 dB를 달성하여, 수동 설계된 CATANet-S(38.13 dB)를 능가하면서 프루닝된 어텐션 헤드와 FFN 뉴런으로 인해 반복 횟수가 크게 감소했다. 이는 자동화된 프루닝이 수작업 아키텍처보다 더 효율적인 구성을 발견할 수 있음을 보여준다.
+
+\subsection{수렴 분석}
+Fig.~\ref{fig:psnr_comparison}는 500 에폭 동안 세 가지 KD 전략의 검증 PSNR 곡선을 비교한다. 모든 방법이 처음 100 에폭 내에 빠르게 수렴했으며, Output KD가 가장 높은 최종 성능을 달성했다. FaKD는 362 에폭에서 최고 PSNR에 도달하며 경쟁력 있는 수렴 속도를 보였고, Feature KD는 373 에폭, Output KD는 467 에폭에서 최고점을 기록했다.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.9\linewidth]{fig4_kd_psnr_comparison.png}
+    \caption{500 에폭 동안 세 가지 KD 전략의 검증 PSNR 비교.}
+    \label{fig:psnr_comparison}
+\end{figure}

@@ -3,6 +3,8 @@ PODS:
   - flutter_pytorch_lite (0.0.1):
     - Flutter
     - LibTorch-Lite (~> 1.13.0.1)
+  - image_gallery_saver (2.0.2):
+    - Flutter
   - image_picker_ios (0.0.1):
     - Flutter
   - LibTorch-Lite (1.13.0.1):
@@ -20,6 +22,7 @@ PODS:
 DEPENDENCIES:
   - Flutter (from `Flutter`)
   - flutter_pytorch_lite (from `.symlinks/plugins/flutter_pytorch_lite/ios`)
+  - image_gallery_saver (from `.symlinks/plugins/image_gallery_saver/ios`)
   - image_picker_ios (from `.symlinks/plugins/image_picker_ios/ios`)
   - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
   - video_player_avfoundation (from `.symlinks/plugins/video_player_avfoundation/darwin`)
@@ -33,6 +36,8 @@ EXTERNAL SOURCES:
     :path: Flutter
   flutter_pytorch_lite:
     :path: ".symlinks/plugins/flutter_pytorch_lite/ios"
+  image_gallery_saver:
+    :path: ".symlinks/plugins/image_gallery_saver/ios"
   image_picker_ios:
     :path: ".symlinks/plugins/image_picker_ios/ios"
   path_provider_foundation:
@@ -43,6 +48,7 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   flutter_pytorch_lite: b2b644f71d4c258c9f2c21becb618812b03117fc
+  image_gallery_saver: 14711d79da40581063e8842a11acf1969d781ed7
   image_picker_ios: e0ece4aa2a75771a7de3fa735d26d90817041326
   LibTorch-Lite: dd01cdefa487b3b1d41f1c8a4495f5e41c79fd80
   path_provider_foundation: bb55f6dbba17d0dccd6737fe6f7f34fbd0376880

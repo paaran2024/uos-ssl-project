@@ -1,2 +1,13 @@
 \section{Conclusion}
-We presented CATANet-XS, a lightweight super-resolution model created by applying OPTIN pruning and knowledge distillation to CATANet-L. Our automated pipeline achieves 51.95\% FLOPs reduction while recovering 99.7\% of teacher performance through Output KD (38.15 dB vs 38.26 dB). Feature KD achieves comparable results at 38.09 dB, and FaKD is expected to further improve performance. This work demonstrates that automated pruning combined with KD can effectively compress Transformer-based SR models, enabling potential deployment on resource-constrained mobile devices.
+
+We set out to answer a simple question: can an automatically compressed model match or exceed a manually designed one? Our experiments with CATANet-XS suggest the answer is yes.
+
+By applying OPTIN-based pruning to CATANet-L and recovering performance through knowledge distillation, we created CATANet-XS with 54.96\% fewer FLOPs. The resulting model achieves 38.15 dB on Set5, slightly outperforming the hand-crafted CATANet-S (38.13 dB). This validates our initial hypothesis that manual architecture design does not guarantee optimal parameter utilization.
+
+Among the three KD strategies we tested, Output KD proved most effective despite being the simplest. We attribute this to the pixel-level nature of super-resolution tasks, where direct output matching provides stronger supervision than intermediate feature alignment.
+
+We also demonstrated practical deployment through a Flutter-based mobile application. This process revealed that benchmark performance does not directly translate to deployment success. Memory constraints, precision differences, and processing overhead introduced challenges that required engineering solutions like tile-based inference with overlap blending.
+
+Our work has clear limitations. We evaluated only on Set5, did not achieve real-time video processing, and observed unexplained artifacts in mobile inference. These remain open problems for future investigation.
+
+Despite these limitations, we believe this work demonstrates a viable path for compressing lightweight Transformer-based SR models. The pruning-distillation pipeline is not specific to CATANet and could potentially be applied to other architectures. For practitioners working on on-device super-resolution, we hope our findings on KD strategy selection and mobile deployment challenges prove useful.

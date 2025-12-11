@@ -1,0 +1,23 @@
+\section{Introduction}
+As mobile device usage increases and privacy concerns become more pronounced, the importance of On-device AI is increasingly emphasized. In the field of Super-Resolution, CATANet \cite{liu2025catanet} significantly improved inference speed by separating the Token Center Update problem into the training phase. However, real-time video processing (24 fps or higher) remains challenging, as CATANet-L achieves 86ms on RTX 4090 \cite{liu2025catanet}.
+
+Most existing architectures are manually and statically designed. CATANet-S (230K) and CATANet-L (477K) are predefined by manually adjusting hyperparameters like \texttt{dim} or \texttt{blocknum} \cite{liu2025catanet}. This manual design introduces two problems: (1) no guarantee of optimal parameter allocation within a given budget, and (2) inability to leverage knowledge from larger pre-trained models.
+
+This paper proposes an automated pipeline combining OPTIN \cite{khaki2024optin} and Feature-Affinity Knowledge Distillation (FaKD) \cite{he2020fakd} to address these issues. Table~\ref{tab:initial_results} presents preliminary results on Set5. After pruning, performance drops from 38.26 dB to 35.63 dB but recovers to 37.90 dB (output distillation) and 37.78 dB (feature distillation), with the latter still improving. Parameters remain at 0.477M as weights are masked rather than physically removed. FaKD could not be evaluated due to CUDA OoM issues. Model rebuilding and memory optimization are expected to achieve near-teacher performance with actual parameter reduction.
+
+\begin{table}[h]
+\centering
+\caption{Preliminary Results on Set5 (10 iterations)}
+\label{tab:initial_results}
+\begin{tabular}{lccc}
+\hline
+Model & PSNR (dB) & SSIM & Params (M) \\
+\hline
+CATANet-L (Teacher) & 38.26 & 0.9616 & 0.477 \\
+Pruned (Weight Masked) & 35.63 & 0.9457 & 0.477* \\
++ Output Distillation & 37.90 & 0.9602 & 0.477* \\
++ Feature Distillation & 37.78 & 0.9596 & 0.477* \\
+\hline
+\multicolumn{4}{l}{\footnotesize *Weights masked but not physically removed}
+\end{tabular}
+\end{table}

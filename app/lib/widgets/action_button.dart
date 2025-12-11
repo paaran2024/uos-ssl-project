@@ -5,13 +5,13 @@ import '../constants.dart';
 class ActionButton extends StatelessWidget {
   final String text;
   final IconData icon;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   const ActionButton({
     super.key,
     required this.text,
     required this.icon,
-    required this.onPressed,
+    this.onPressed,
   });
 
   @override

@@ -1,0 +1,37 @@
+\section{시스템 구현}
+CATANet-XS를 활용한 온디바이스 초해상도 처리를 위해 Flutter 기반 모바일 애플리케이션을 개발하였다.
+
+\subsection{PyTorch Lite 통합}
+\texttt{flutter\_pytorch\_lite} (v0.1.0+3)를 사용하여 모바일 기기에서 PyTorch 모델을 실행한다. Android는 PyTorch Mobile v1.13.1, iOS는 LibTorch-Lite 1.13.0.1을 사용한다. \texttt{torch.jit.trace()}와 \texttt{optimize\_for\_mobile()}을 통해 TorchScript 형식(.ptl)으로 변환한다.
+
+\subsection{타일 기반 처리}
+모바일 메모리 제약 내에서 다양한 크기의 이미지를 처리하기 위해 타일 기반 처리 전략을 구현하였다. 전체 이미지를 한 번에 처리하는 대신, 입력을 작은 타일($64 \times 64$ 픽셀)로 분할하여 각 타일을 독립적으로 모델에 통과시킨다. 이 방식을 통해 메모리가 제한된 모바일 기기에서도 고해상도 이미지를 메모리 오버플로우 없이 처리할 수 있다.
+
+각 타일은 모델의 고정 입력 크기에 맞게 패딩되어 네트워크를 통과하고, 유효한 출력 영역만 추출된다. 업스케일된 타일들은 병합되어 전체 출력 이미지를 재구성한다.
+
+\subsection{오버랩 블렌딩}
+타일 경계에서 보이는 이음새를 제거하기 위해 인접 타일 간 8픽셀 오버랩 영역을 사용한 오버랩 블렌딩을 적용한다. 오버랩 영역에서는 인접 타일 간 부드러운 전환을 위해 선형 가중치 블렌딩을 적용한다:
+
+\begin{equation}
+P_{out}(x,y) = \frac{\sum_{i} w_i(x,y) \cdot P_i(x,y)}{\sum_{i} w_i(x,y)}
+\end{equation}
+
+여기서 $w_i$는 타일 중심에서 1.0부터 오버랩 경계에서 0.0까지 선형적으로 감소하는 블렌딩 가중치이다. 이 가중 평균을 통해 타일 경계에서 가시적인 아티팩트 없이 매끄러운 전환을 생성한다. Fig.~\ref{fig:taskflow}는 애플리케이션 워크플로우를 보여준다.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.7\linewidth]{fig5_workflow.png}
+    \caption{타일 기반 처리를 적용한 온디바이스 초해상도 애플리케이션 워크플로우.}
+    \label{fig:taskflow}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \begin{tabular}{cc}
+        \includegraphics[width=0.4\linewidth]{fig6_app_processing.png} &
+        \includegraphics[width=0.4\linewidth]{fig6_app_done.png} \\
+        (a) 처리 중 & (b) 완료 \\
+    \end{tabular}
+    \caption{모바일 애플리케이션 인터페이스: (a) 업스케일링 중 실시간 타일 진행 상황, (b) 완료된 $\times 2$ 출력.}
+    \label{fig:app_screenshot}
+\end{figure}

@@ -1,0 +1,47 @@
+\section{방법론}
+본 연구에서는 CATANet-L에 프루닝 및 증류 파이프라인을 적용하여 학생 모델(CATANet-XS)을 학습시켰다 (Fig.~\ref{fig:catanet}). 접근 방식은 세 단계로 구성된다: (1) 궤적 기반 구조적 프루닝, (2) 성능 복구를 위한 지식 증류, (3) 파라미터 감소를 위한 모델 재구축.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{fig1_catanet.png}
+    \caption{CATANet 아키텍처. CATA는 평균 풀링을 통해 토큰 센터를 형성하고, 효율적인 처리를 위해 토큰을 그룹화하며, 각 서브그룹이 이웃 키에만 어텐션하는 교차 서브그룹 어텐션을 적용한다.}
+    \label{fig:catanet}
+\end{figure}
+
+\subsection{궤적 기반 프루닝}
+CATANet 내의 중복 컴포넌트를 식별하기 위해 OPTIN의 궤적 기반 중요도 지표(TBI)를 활용한다 (Fig.~\ref{fig:optine}). OPTIN은 원래 표준 셀프 어텐션을 가진 비전 트랜스포머용으로 설계되었기 때문에, CATA(Content-Aware Token Aggregation)와 로컬 영역 셀프 어텐션을 결합한 CATANet의 하이브리드 CNN-트랜스포머 구조에 직접 적용할 수 없다.
+
+두 가지 유형의 컴포넌트에 대한 마스크를 생성하는 커스텀 프루닝 레이어를 구현했다: (1) TAB(Token Aggregation Block)와 LRSA(Local-Region Self-Attention) 모듈의 어텐션 헤드, (2) ConvFFN(Convolutional Feed-Forward Network)의 뉴런. 글로벌 랭킹 알고리즘은 MAC 제약 조건 하에서 모든 레이어의 중요도를 동시에 평가하여, 레이어당 최소 하나의 헤드/뉴런을 유지하면서 최적의 자원 할당을 보장한다.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{fig2_optin.png}
+    \caption{OPTIN 프레임워크는 중간 특징 임베딩을 사전 계산된 고정 교사 임베딩과 비교하여 레이어별 중요도를 계산한다. 덜 중요한 컴포넌트를 프루닝하기 위해 마스크가 적용된다.}
+    \label{fig:optine}
+\end{figure}
+
+\subsection{지식 증류}
+프루닝 후, 구조적 프루닝으로 인한 성능 저하를 복구하기 위해 지식 증류를 사용했다. 증가하는 감독 복잡도를 가진 세 가지 KD 전략을 구현하고 비교했다:
+
+\textbf{Output KD}는 교사와 학생의 최종 출력 간 L1 거리를 최소화한다:
+\begin{equation}
+\mathcal{L} = \alpha \cdot \mathcal{L}_{task} + \beta \cdot \mathcal{L}_{distill}
+\end{equation}
+여기서 $\mathcal{L}_{task}$는 정답과의 표준 SR 손실이고 $\mathcal{L}_{distill} = ||Y_t - Y_s||_1$이다.
+
+\textbf{Feature KD}는 각 트랜스포머 블록 후 특징을 정렬하여 중간 특징 맵으로 감독을 확장한다. 이는 네트워크 깊이 전체에 그래디언트 신호를 제공하여 더 안정적인 수렴을 가능하게 한다.
+
+\textbf{FaKD}(Feature-Affinity Knowledge Distillation, Fig.~\ref{fig:fakd})는 특징 위치 간의 공간적 친화도 관계를 전달한다. 직접적인 특징 매칭 대신, 정규화된 특징에서 친화도 행렬 $A = F \cdot F^T$를 계산하고 $||A_t - A_s||$를 최소화한다. 이는 공간적 일관성이 중요한 SR 태스크에 유익한 구조적 관계를 포착한다.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{fig3_fakd.png}
+    \caption{FaKD는 정규화된 특징 맵에서 공간적 친화도 행렬을 생성하여 더 풍부한 감독을 위한 픽셀 수준 관계를 포착한다.}
+    \label{fig:fakd}
+\end{figure}
+
+\subsection{모델 재구축}
+프루닝 단계는 유지할 컴포넌트를 나타내는 이진 마스크와 함께 희소 가중치를 생성한다. 실제 파라미터 감소와 효율적인 모바일 추론을 위해 다음을 수행하는 재구축 파이프라인을 구현했다: (1) 마스크 기반으로 활성 헤드/뉴런 추출, (2) 레이어별로 다른 차원을 가진 새로운 컴팩트 아키텍처 구성, (3) 프루닝되지 않은 가중치만 전달. 이를 통해 배포에 적합한 물리적으로 작은 모델이 생성된다.
+
+\subsection{학습 설정}
+DIV2K 데이터셋을 사용하여 배치 크기 16, 패치 크기 $128 \times 128$, $\times 2$ 스케일로 학습했다. Set5를 검증 벤치마크로 사용했다. 프루닝 단계에서 MAC 제약 0.4를 적용하여 원본 FLOPs의 45.04\%를 유지했다 (54.96\% 감소). 파인튜닝은 AdamW 옵티마이저, 학습률 $10^{-4}$, 코사인 어닐링 스케줄러를 사용하여 500 에폭 동안 수행했다. 세 가지 KD 전략을 다음 하이퍼파라미터로 비교했다: Output KD ($\alpha$=0.8, $\beta$=0.5), Feature KD ($\alpha$=0.5, $\beta$=1.0), FaKD ($\alpha$=0.5, $\beta$=0.1).

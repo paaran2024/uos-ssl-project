@@ -1,0 +1,44 @@
+\section{Method}
+We trained a student model (CATANet-XS) by applying a pruning and distillation pipeline to CATANet\ref{fig:catanet}.
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{catanet_arch.png}
+    \caption{CATA forms token centers through average pooling, groups tokens for efficient processing, and applies cross-subgroup attention so each subgroup attends only to neighboring keys, enabling lightweight and effective token aggregation.}
+    \label{fig:catanet}
+\end{figure}
+
+%% model overview
+
+\subsection{Trajectory-Based Pruning}
+To identify redundant components within CATANet, we leverage the trajectory-based importance metric (TBI) from OPTIN\ref{fig:optine}. Since OPTIN cannot be directly applied to CATANet's hybrid CNN-Transformer structure, we implement custom layers to generate pruning masks. 
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{optine.png}
+    \caption{OPTIN framework computes layer-wise importance by comparing intermediate feature embeddings with a set of fixed pre-computed teacher embeddings. A mask is applied to prune less important components, and the model is trained using both embedding-based loss and logit-based knowledge distillation to preserve performance during pruning.}
+    \label{fig:optine}
+\end{figure}
+
+
+\subsection{Feature-based Distillation Strategy}
+After pruning, we employed knowledge distillation to minimize performance degradation. We evaluated multiple approaches including output distillation, feature distillation, and Feature-Affinity Knowledge Distillation (FaKD)\ref{fig:fakd} \cite{he2020fakd}, which transfers both feature values and their affinity relationships.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{fakd_arch.png}
+    \caption{In FAKD, normalized feature maps are transformed and multiplied to generate a spatial affinity matrix, which captures pixel-level relationships and offers richer supervision than conventional feature matching.}
+    \label{fig:fakd}
+\end{figure}
+
+\subsection{Training Setup}
+\paragraph{Datasets}
+CATANet-XS는 초해상도 분야에서 널리 사용되는 벤치마크 데이터셋인 Set5와 Set14를 사용하여 학습되었다.
+
+\paragraph{parameters}
+
+
+\paragraph{Training Environment}
+
+
+\paragraph{Training Procedure}
+먼저 pretrained된 CATANet-L을 사용하여 OPTIN purning 절차를 적용거쳐 CATANet 구조를 얻고 이를 student 모델로 사용한다. purning으로 품질이 저하된 상태인 student 모델의 성능 향상을 위하여 distillation 기법을 사용한다.

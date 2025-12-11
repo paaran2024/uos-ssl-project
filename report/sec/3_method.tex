@@ -1,31 +1,47 @@
 \section{Method}
-We trained a student model (CATANet-XS) by applying a pruning and distillation pipeline to CATANet (Fig.~\ref{fig:catanet}).
+We trained a student model (CATANet-XS) by applying a pruning and distillation pipeline to CATANet-L (Fig.~\ref{fig:catanet}). Our approach consists of three stages: (1) trajectory-based structural pruning, (2) knowledge distillation for performance recovery, and (3) model rebuilding for parameter reduction.
+
 \begin{figure}
     \centering
-    \includegraphics[width=1\linewidth]{catanet_arch.png}
-    \caption{CATA forms token centers through average pooling, groups tokens for efficient processing, and applies cross-subgroup attention so each subgroup attends only to neighboring keys, enabling lightweight and effective token aggregation.}
+    \includegraphics[width=1\linewidth]{fig1_catanet.png}
+    \caption{CATANet architecture. CATA forms token centers through average pooling, groups tokens for efficient processing, and applies cross-subgroup attention where each subgroup attends only to neighboring keys.}
     \label{fig:catanet}
 \end{figure}
 
 \subsection{Trajectory-Based Pruning}
-To identify redundant components within CATANet, we leverage the trajectory-based importance metric (TBI) from OPTIN (Fig.~\ref{fig:optine}). Since OPTIN cannot be directly applied to CATANet's hybrid CNN-Transformer structure, we implement custom layers to generate pruning masks.
+To identify redundant components within CATANet, we leverage the trajectory-based importance metric (TBI) from OPTIN (Fig.~\ref{fig:optine}). Since OPTIN was originally designed for vision transformers with standard self-attention, it cannot be directly applied to CATANet's hybrid CNN-Transformer structure that combines CATA (Content-Aware Token Aggregation) with local region self-attention.
+
+We implemented custom pruning layers that generate masks for two types of components: (1) attention heads in TAB (Token Aggregation Block) and LRSA (Local-Region Self-Attention) modules, and (2) neurons in ConvFFN (Convolutional Feed-Forward Network). Our global ranking algorithm evaluates importance across all layers simultaneously under a MAC constraint, ensuring optimal resource allocation while maintaining at least one head/neuron per layer for structural integrity.
 
 \begin{figure}
     \centering
-    \includegraphics[width=1\linewidth]{optine.png}
+    \includegraphics[width=1\linewidth]{fig2_optin.png}
     \caption{OPTIN framework computes layer-wise importance by comparing intermediate feature embeddings with fixed pre-computed teacher embeddings. A mask is applied to prune less important components.}
     \label{fig:optine}
 \end{figure}
 
-\subsection{Feature-based Distillation Strategy}
-After pruning, we employed knowledge distillation to recover performance. We evaluated three approaches: (1) Output KD that minimizes L1 distance between teacher and student outputs, (2) Feature KD that aligns intermediate feature maps, and (3) FaKD (Fig.~\ref{fig:fakd}) \cite{he2020fakd} which transfers spatial affinity relationships between features.
+\subsection{Knowledge Distillation}
+After pruning, we employed knowledge distillation to recover the performance degradation caused by structural pruning. We implemented and compared three KD strategies with increasing supervision complexity:
+
+\textbf{Output KD} minimizes the L1 distance between teacher and student final outputs:
+\begin{equation}
+\mathcal{L} = \alpha \cdot \mathcal{L}_{task} + \beta \cdot \mathcal{L}_{distill}
+\end{equation}
+where $\mathcal{L}_{task}$ is the standard SR loss with ground truth and $\mathcal{L}_{distill} = ||Y_t - Y_s||_1$.
+
+\textbf{Feature KD} extends supervision to intermediate feature maps by aligning features after each Transformer block. This provides gradient signals throughout the network depth, enabling more stable convergence.
+
+\textbf{FaKD} (Feature-Affinity Knowledge Distillation, Fig.~\ref{fig:fakd}) transfers spatial affinity relationships between feature positions. Instead of direct feature matching, it computes affinity matrices $A = F \cdot F^T$ from normalized features and minimizes $||A_t - A_s||$. This captures structural relationships that are beneficial for SR tasks where spatial consistency is critical.
 
 \begin{figure}
     \centering
-    \includegraphics[width=1\linewidth]{fakd_arch.png}
+    \includegraphics[width=1\linewidth]{fig3_fakd.png}
     \caption{FaKD generates spatial affinity matrices from normalized feature maps, capturing pixel-level relationships for richer supervision.}
     \label{fig:fakd}
 \end{figure}
 
+\subsection{Model Rebuilding}
+The pruning stage produces sparse weights with binary masks indicating which components to keep. For actual parameter reduction and efficient mobile inference, we implemented a rebuilding pipeline that: (1) extracts active heads/neurons based on masks, (2) constructs a new compact architecture with layer-wise varying dimensions, and (3) transfers only the non-pruned weights. This produces a physically smaller model suitable for deployment.
+
 \subsection{Training Setup}
-We use DIV2K for training (batch size 16, patch size 128) and Set5 for validation with $\times$2 scale. Pruning applies MAC constraint of 0.5, achieving 51.95\% FLOPs ratio. Fine-tuning uses AdamW optimizer (lr=$10^{-4}$) for 500 epochs. We compare three KD strategies: Output KD ($\alpha$=0.8, $\beta$=0.5), Feature KD ($\alpha$=0.5, $\beta$=1.0), and FaKD.
+We used the DIV2K dataset for training with batch size 16 and patch size $128 \times 128$ at $\times 2$ scale. Set5 served as the validation benchmark. The pruning stage applied a MAC constraint of 0.4, achieving 45.04\% of original FLOPs (54.96\% reduction). Fine-tuning used AdamW optimizer with learning rate $10^{-4}$, cosine annealing scheduler, and ran for 500 epochs. We compared three KD strategies with hyperparameters: Output KD ($\alpha$=0.8, $\beta$=0.5), Feature KD ($\alpha$=0.5, $\beta$=1.0), and FaKD ($\alpha$=0.5, $\beta$=0.1).

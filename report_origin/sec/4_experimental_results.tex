@@ -1,0 +1,46 @@
+\section{Experimental Results}
+\subsection{Quantitative Results}
+
+%%PSNR/SSIM
+%%Teacher vs Student 비교 테이블
+
+
+%% catanet 논문 table7 첨부함. xs결과나오면 추가해서 비교하면 좋을듯?
+%% 필요없음 지우셈요
+
+\begin{table}[t]
+    \centering
+    \caption{Performance comparison of CATANet variants and lightweight SR models on Set5 and Set14. 
+    Red values denote the results of our CATANet-XS model.}
+    \label{tab:catanet_baseline_reduced}
+    \setlength{\tabcolsep}{5pt}
+    \renewcommand{\arraystretch}{1.2}
+    \begin{tabular}{l c c c}
+        \hline
+        \textbf{Method} & \textbf{Params} & \textbf{Set5} & \textbf{Set14} \\
+        \hline
+        ATD-L & 484K & 38.23 & 33.94 \\
+        SMFANet+ & 480K & 38.18 & 33.82 \\
+        \textbf{CATANet-L} & 477K & 38.28 & 33.99 \\
+        \textbf{CATANet-XS (ours)} & \textcolor{red}{---} & \textcolor{red}{---} & \textcolor{red}{---} \\
+        \hline
+        ATD-M & 300K & 38.14 & 33.78 \\
+        DITN-Tiny & 367K & 38.00 & 33.70 \\
+        \textbf{CATANet-M} & 306K & 38.17 & 33.94 \\
+        \textbf{CATANet-XS (ours)} & \textcolor{red}{---} & \textcolor{red}{---} & \textcolor{red}{---} \\
+        \hline
+        ATD-S & 229K & 38.07 & 33.74 \\
+        SAFMN & 228K & 38.00 & 33.54 \\
+        SeemoRe-T & 220K & 38.06 & 33.62 \\
+        \textbf{CATANet-S} & 230K & 38.13 & 33.80 \\
+        \textbf{CATANet-XS (ours)} & \textcolor{red}{---} & \textcolor{red}{---} & \textcolor{red}{---} \\
+        \hline
+    \end{tabular}
+\end{table}
+
+
+
+\subsection{Qualitative Results}
+
+%%% 복원 이미지 전/후 사진 첨부
+%% 차이 분석..?

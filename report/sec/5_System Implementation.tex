@@ -1,35 +1,37 @@
 \section{System Implementation}
-This section describes the Flutter-based mobile application designed to deploy CATANet for on-device super-resolution.
+We developed a Flutter-based mobile application for on-device super-resolution using CATANet-XS.
 
-\subsection{Application Architecture}
-The application consists of two main tabs managed by Flutter's DefaultTabController: PictureTab for image upscaling and VideoTab for video processing. Both tabs share a consistent UI pattern with input/output media containers, resolution display, and inference time measurement (Fig.~\ref{fig:taskflow}).
+\subsection{PyTorch Lite Integration}
+The application uses \texttt{flutter\_pytorch\_lite} (v0.1.0+3) to run PyTorch models on mobile devices, providing native bindings to PyTorch Mobile runtime (v1.13.1 for Android, LibTorch-Lite 1.13.0.1 for iOS). The model is converted to TorchScript format (.ptl) using \texttt{torch.jit.trace()} with \texttt{optimize\_for\_mobile()}.
 
-\begin{figure}
+\subsection{Tile-Based Processing}
+To handle arbitrary image sizes within mobile memory constraints, we implement a tile-based processing strategy. Rather than processing the entire image at once, we divide the input into small tiles ($64 \times 64$ pixels) and process each tile independently through the model. This approach enables processing of high-resolution images on memory-limited mobile devices without overflow errors.
+
+Each tile is padded to match the model's fixed input size, processed through the network, and the valid output region is extracted. The upscaled tiles are then merged to reconstruct the full output image.
+
+\subsection{Overlap Blending}
+To eliminate visible seams at tile boundaries, we employ overlap blending with an 8-pixel overlap region between adjacent tiles. In the overlap regions, we apply linear weight blending that smoothly transitions between neighboring tiles:
+
+\begin{equation}
+P_{out}(x,y) = \frac{\sum_{i} w_i(x,y) \cdot P_i(x,y)}{\sum_{i} w_i(x,y)}
+\end{equation}
+
+where $w_i$ is the blending weight that decreases linearly from 1.0 at the tile center to 0.0 at the overlap boundary. This weighted averaging produces seamless transitions without visible artifacts at tile boundaries. Fig.~\ref{fig:taskflow} shows the application workflow.
+
+\begin{figure}[h]
     \centering
-    \includegraphics[width=0.7\linewidth]{tf.png}
-    \caption{Application workflow: users select media, perform AI upscaling, and save results to gallery.}
+    \includegraphics[width=0.7\linewidth]{fig5_workflow.png}
+    \caption{Application workflow for on-device super-resolution with tile-based processing.}
     \label{fig:taskflow}
 \end{figure}
 
-\subsection{PyTorch Lite Integration}
-We use \texttt{flutter\_pytorch\_lite} package to run PyTorch models directly on mobile devices. The model file (\texttt{CATANet-L\_x2\_1280.ptl}) is loaded from assets and cached in temporary storage for efficient reuse.
-
-\subsubsection{Image Processing Pipeline}
-The image conversion follows these steps:
-\begin{enumerate}
-    \item \textbf{Resize}: Input image is resized to fixed 1280$\times$1280 resolution using bilinear interpolation
-    \item \textbf{Tensor Conversion}: Image is converted to CHW format Float32 tensor with 0-1 normalization
-    \item \textbf{Inference}: PyTorch Lite module performs forward pass
-    \item \textbf{Output Decoding}: Output tensor (2560$\times$2560) is converted back to image and encoded as PNG
-\end{enumerate}
-
-The fixed input size (1280$\times$1280) ensures consistent memory usage and inference time across different input resolutions. The $\times$2 upscaling produces 2560$\times$2560 output images.
-
-\subsubsection{PictureTab Implementation}
-Users select images from gallery via \texttt{ImagePicker}. The selected image is loaded as \texttt{Uint8List} and displayed in the input container. After upscaling, the output is rendered using \texttt{Image.memory()} which directly renders byte arrays on GPU without intermediate file storage. Resolution badges display both input and output dimensions for easy comparison.
-
-\subsubsection{VideoTab Implementation}
-VideoTab follows similar patterns with \texttt{VideoPlayerController} for playback. The output video supports full-screen viewing and can be saved to device gallery.
-
-\subsection{Model Conversion}
-Since Flutter does not natively support PyTorch, we convert the trained model to TorchScript format (.ptl) using \texttt{torch.jit.trace()}. This enables efficient on-device inference while preserving model accuracy.
+\begin{figure}[h]
+    \centering
+    \begin{tabular}{cc}
+        \includegraphics[width=0.4\linewidth]{fig6_app_processing.png} &
+        \includegraphics[width=0.4\linewidth]{fig6_app_done.png} \\
+        (a) Processing & (b) Completed \\
+    \end{tabular}
+    \caption{Mobile application interface: (a) real-time tile progress during upscaling, (b) completed $\times 2$ output.}
+    \label{fig:app_screenshot}
+\end{figure}

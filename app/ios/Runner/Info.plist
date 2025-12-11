@@ -45,5 +45,9 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>업스케일된 이미지를 갤러리에 저장하기 위해 사진 접근 권한이 필요합니다.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>업스케일된 이미지를 갤러리에 저장하기 위해 사진 추가 권한이 필요합니다.</string>
 </dict>
 </plist>

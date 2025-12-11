@@ -1,0 +1,33 @@
+\section{System Implementation}
+This section describes the structure and functionality of a Flutter-based app implemented to utilize CATANet-XS. This application is designed to allow users to directly select, restore, and save desired images, and to intuitively compare restoration performance.
+
+\subsection{Application Design Motivation}
+For on-device AI models to be used in real-world environments, a usable application is required, allowing users to directly load desired images and instantly view the results. Therefore, before connecting the AI model, we first implemented core functions, including input and output interfaces for photos and videos, playback functions, and output storage functions. This foundation is then used to connect the AI model and operate the entire system.
+
+\subsection{Application Architecture}
+The application consists of two main tabs: PictureTab and VideoTab. As the names suggest, PictureTab handles photo restoration, while VideoTab handles video restoration. Both tabs are managed by DefaultTabController, Flutter's default controller, and are designed to allow intuitive comparison of input and output image results. Furthermore, the resolution of the input and output images and the AI computation time can be displayed, allowing for verification of model performance.\ref{fig:taskflow}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.7\linewidth]{tf.png}
+    \caption{Enter Caption}
+    \label{fig:taskflow}
+\end{figure}
+
+\subsubsection{PictureTab Implementation}
+PictureTab is designed to allow users to conveniently convert high-resolution photos and intuitively view the changes. Its basic UI consists largely of input and output image boxes.
+
+Selecting the input image box allows users to select an image from the gallery, and the selected file is loaded as a Uint8List. The converted image then appears in the output image tab and can be saved to the gallery using the download button.
+
+The output image is rendered using Flutter's Image.memory() function. This widget directly receives image data in byte array format and renders it immediately on the GPU. Therefore, when model inference results are received as a Uint8List, they can be displayed immediately on the screen without a separate file storage process.
+
+\subsubsection{VideoTab Implementation}
+VideoTab is designed to enable users to easily super-resolution video and conveniently view the results. Its overall structure is similar to PictureTab. Input and output image boxes are provided, and users can select the video they wish to convert from the gallery by selecting the input box. The converted video can then be viewed full-screen on the screen and saved using the download button.
+
+The output video is played using VideoPlayerController.file(). Unlike photos, the AI model inference results are encoded and delivered as a file. Flutter receives the file path and plays it without any additional conversion. This process allows high-resolution video playback on mobile devices without any additional conversion.
+
+\subsection{Model Integration}
+현재 우리가 설계한 ai모델은 pytorch로 작성되었다. 그러나 flutter 환경에서는 pytorch를 지원하지 않는다. 그래서 우리는 flutter에서 지원하는 TensorFlow Lite(TFLite)로 .pth 파일을 변환한다. .pth 파일을 직접 TFLite 변환할 수는 없어서 $pth -> onnx -> TF -> TFLite$ 과정을 거쳐 파일을 변환하게 된다.
+
+**열린결말 완성 후 수정 예정**
+**화면 사진 추가**

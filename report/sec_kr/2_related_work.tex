@@ -1,0 +1,10 @@
+\section{관련 연구}
+
+\subsection{경량 SR 트랜스포머}
+트랜스포머 기반 초해상도 모델은 최첨단 성능을 달성했지만 셀프 어텐션의 이차 복잡도 문제가 있다. SwinIR~\cite{liang2021swinir}은 shifted window attention으로 복잡도를 줄였고, ESRT~\cite{lu2022esrt}는 모바일 배포를 위한 효율적인 트랜스포머 블록을 제안했다. CATANet~\cite{liu2025catanet}은 Content-Aware Token Aggregation(CATA)을 통해 콘텐츠 무관 로컬 윈도우 문제를 해결하며, 학습 중에만 토큰 센터를 업데이트하여 추론 속도를 개선한다. 그러나 이러한 모델들은 여전히 수동 설계된 크기 변형(S/M/L)에 의존한다.
+
+\subsection{프루닝}
+모델 프루닝은 중복 파라미터를 제거하여 네트워크를 압축한다. 전통적인 방법은 크기 기반 기준을 사용하며 반복적인 프루닝과 재학습이 필요하다. 최근 연구는 트랜스포머를 위한 구조적 프루닝을 탐구한다: ViT-Slim~\cite{chavan2022vision}은 어텐션 헤드와 FFN 뉴런을 함께 프루닝한다. OPTIN~\cite{khaki2024optin}은 궤적 기반 중요도(TBI)를 사용한 원샷 프루닝을 도입하여 광범위한 재학습 없이 최적 서브네트워크를 식별한다. 우리는 OPTIN을 CATANet의 하이브리드 CNN-Transformer 구조에 적용했다.
+
+\subsection{지식 증류}
+지식 증류는 큰 교사 모델에서 소형 학생 모델로 지식을 전달한다. Hinton et al.~\cite{hinton2015distilling}은 소프트닝된 출력을 사용한 로짓 기반 증류를 제안했다. SR과 같은 밀집 예측 태스크에서는 특징 기반 방법이 더 효과적이다. FAKD~\cite{he2020fakd}는 원시 특징 값 대신 픽셀 간 공간적 관계를 전달하는 특징 친화도 증류를 도입하며, 이는 지역 구조 보존이 중요한 SR에 특히 적합하다.
